@@ -1,0 +1,7 @@
+# game files, intermediates and builds (the playable game is attached to the GitHub release)
+work/*
+!work/installer/
+work/installer/*.ico
+output/
+__pycache__/
+*.pyc
