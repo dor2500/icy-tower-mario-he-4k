@@ -1,0 +1,47 @@
+# Publishes the HTML version to GitHub Pages: https://dor2500.github.io/icy-tower-mario-he-4k/
+# Code from web/ in the repo; the game assets (generated from the game files, not kept in git) come
+# from icytower13_mario_he_web.zip of the latest release.
+name: Deploy HTML version to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/pages.yml']
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assets from the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download --repo "$GITHUB_REPOSITORY" --pattern 'icytower13_mario_he_web.zip' --dir /tmp/rel
+          unzip -q /tmp/rel/icytower13_mario_he_web.zip -d /tmp/rel
+          mkdir -p site
+          cp -r web/. site/
+          cp -r /tmp/rel/icy-tower-mario-web/assets site/assets
+          touch site/.nojekyll
+          ls site site/assets | head -50
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
