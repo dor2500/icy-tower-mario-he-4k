@@ -75,15 +75,18 @@ async function loadAll() {
   const images = { '1x': {}, hd: {} };
   const bar = $('#loadBar');
   let done = 0;
-  const total = names.length * 2;
-  const one = (set, n) => new Promise(ok => {
+  const total = names.length;
+  const one = (set, n, count) => new Promise(ok => {
     const im = new Image();
-    im.onload = () => { images[set][n] = im; done++; bar.style.width = (done / total * 80) + '%'; ok(); };
-    im.onerror = () => { done++; ok(); };
+    im.onload = () => { images[set][n] = im; if (count) { done++; bar.style.width = (done / total * 80) + '%'; } ok(); };
+    im.onerror = () => { if (count) done++; ok(); };
     im.src = `assets/${set}/${n}.${set === 'hd' ? 'webp' : 'png'}`;
   });
-  await Promise.all(names.map(n => one('1x', n)).concat(names.map(n => one('hd', n))));
+  // the set for the current graphics mode first; the other one quietly afterwards (needed only on a switch)
+  const first = cfg.gfx === 'hd' ? 'hd' : '1x', second = first === 'hd' ? '1x' : 'hd';
+  await Promise.all(names.map(n => one(first, n, true)));
   G.setAssets(meta, images);
+  Promise.all(names.map(n => one(second, n, false))).then(() => G.setAssets(meta, images));
   const snd = meta.sfx.map(n => [n, `assets/sfx/${n}.mp3`]).concat(meta.char.map(n => ['C_' + n, `assets/sfx/C_${n}.mp3`]));
   if (meta.music) snd.push(['MUSIC', 'assets/sfx/MUSIC.wav']);
   let sd = 0;
