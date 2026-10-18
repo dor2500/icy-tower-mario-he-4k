@@ -2,7 +2,8 @@
 # Needs: Python 3 (pillow, numpy, scipy, pefile), Inno Setup 6. Windows only (set_icon uses UpdateResource).
 # Inputs (not in git, see README): work\extract\app (the original game files), work\unpacked\icytower13.exe
 # (UPX-unpacked original exe), work\dl\cnc-ddraw\x (cnc-ddraw release), work\tower.cfg.bak (a default config).
-param([switch]$NoInstaller)
+# -MarioAudio <folder>: also import your own SMB effects/theme videos (local builds only; never publish that build).
+param([switch]$NoInstaller, [string]$MarioAudio)
 $ErrorActionPreference = 'Stop'
 $R = $PSScriptRoot; $T = "$R\tools"; $W = "$R\work"; $A = "$W\he_app"
 $orig = "$W\extract\app"
@@ -25,6 +26,7 @@ py "$T\patch_exe.py" "$W\icytower13_icon.exe" "$A\icytower13.exe"
 
 # 4. Super Mario character (default) + 4K via cnc-ddraw
 py "$T\make_mario.py" $A
+if ($MarioAudio) { & "$T\import_mario_audio.ps1" -Src $MarioAudio -Char "$A\characters\super_mario" }
 py "$T\set_default_char.py" "$W\tower.cfg.bak" "$A\tower.cfg" super_mario
 Copy-Item "$W\dl\cnc-ddraw\x\ddraw.dll" $A
 New-Item -ItemType Directory -Force "$A\Shaders" | Out-Null
