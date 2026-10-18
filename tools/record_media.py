@@ -111,7 +111,7 @@ def video(p, seconds=42, w=1280, h=960, seed=31337):
 
     def grab(k=1):
         nonlocal n
-        save_data_url(page.evaluate(f"() => window.__icy.step({k}, 'image/jpeg', 0.92)"), os.path.join(tmp, '%05d.jpg' % n))
+        save_data_url(page.evaluate(f"() => window.__icy.step({k}, 'image/jpeg', 0.92)"), os.path.join(tmp, f'{n:05d}.jpg'))
         n += 1
 
     for _ in range(75):                               # 1.5 s of the title screen
@@ -133,7 +133,7 @@ def video(p, seconds=42, w=1280, h=960, seed=31337):
                     'fps=20,scale=480:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=bayer:bayer_scale=4',
                     gif], check=True)
     shutil.rmtree(tmp)
-    print('  gameplay.mp4 (%d frames), gameplay.gif' % n)
+    print(f'  gameplay.mp4 ({n} frames), gameplay.gif')
 
 
 if __name__ == '__main__':
