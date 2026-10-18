@@ -3,5 +3,8 @@ work/*
 !work/installer/
 work/installer/*.ico
 output/
+# HTML version: assets are generated from the game files by tools/build_web.py (attached to the release)
+web/assets/
+.playwright-mcp/
 __pycache__/
 *.pyc
