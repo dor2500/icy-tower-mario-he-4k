@@ -27,10 +27,15 @@ py "$T\patch_exe.py" "$W\icytower13_icon.exe" "$A\icytower13.exe"
 # 4. Super Mario character (default) + 4K via cnc-ddraw
 py "$T\make_mario.py" $A
 if ($MarioAudio) { & "$T\import_mario_audio.ps1" -Src $MarioAudio -Char "$A\characters\super_mario" }
+# the original Icy Tower music is removed: menu = the Mario theme (or silence), in game = silence, so the only
+# music in the game is Mario's own [bgmusic] (smb_theme.wav, set by import_mario_audio.ps1)
+if ($MarioAudio) { py "$T\set_music.py" "$orig\data\sfx13.dat" "$A\data\sfx13.dat" "$A\characters\super_mario\smb_theme.wav" }
+else { py "$T\set_music.py" "$orig\data\sfx13.dat" "$A\data\sfx13.dat" }
 py "$T\set_default_char.py" "$W\tower.cfg.bak" "$A\tower.cfg" super_mario
 Copy-Item "$W\dl\cnc-ddraw\x\ddraw.dll" $A
 New-Item -ItemType Directory -Force "$A\Shaders" | Out-Null
 Copy-Item "$W\dl\cnc-ddraw\x\Shaders\nearest-neighbor.glsl" "$A\Shaders\"
+Copy-Item "$W\dl\cnc-ddraw\x\Shaders\xbrz" "$A\Shaders\" -Recurse   # HD / 8K look (libretro glsl-shaders)
 Copy-Item "$T\ddraw.ini" $A
 Copy-Item "$W\he_images\mario.ico" "$W\installer\mario.ico"
 
@@ -39,4 +44,8 @@ if (-not $NoInstaller) {
   & "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" /Q "$W\installer\icytower_he.iss"
   if ($LASTEXITCODE) { throw 'ISCC failed' }
 }
+
+# 6. HTML version: the same graphics (6x xBRZ for HD/8K), fonts and sounds -> web\assets (needs work\bin\xbrz_cli.exe,
+#    see tools\xbrz\xbrz_cli.cpp). Without -MarioAudio the web version has no music.
+if (Test-Path "$W\bin\xbrz_cli.exe") { py "$T\build_web.py" $A "$R\web\assets" "$W\bin\xbrz_cli.exe" }
 "done: $A"
