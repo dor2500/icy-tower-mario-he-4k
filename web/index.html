@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#000000">
-<meta name="description" content="Icy Tower 1.3.1 - מהדורת סופר מריו בעברית, בדפדפן ובטלפון. אותו משחק ואותו עיצוב, ב-HD עד 8K.">
+<meta name="description" content="אייסי טאוור 1.3.1 - מהדורת סופר מריו בעברית, בדפדפן, בטלפון ובמחשב. אותו משחק ואותו עיצוב, באיכות HD עד 8K.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Icy Mario">
-<title>Icy Tower - מהדורת סופר מריו</title>
+<title>אייסי טאוור - מהדורת סופר מריו</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="assets/icons/icon-192.png">
 <link rel="apple-touch-icon" href="assets/icons/icon-180.png">
@@ -20,6 +20,10 @@
 <img id="logo" src="assets/hd/TITLE.webp" alt="">
 
 <canvas id="game"></canvas>
+
+<!-- "מצב פרסומות" (ads.js) -->
+<div id="adTop" class="ad top" role="link" hidden></div>
+<div id="adBot" class="ad bot" role="link" hidden></div>
 
 <!-- touch controls (shown on phones / tablets) -->
 <div id="controls">
@@ -36,7 +40,7 @@
 
 <!-- phone: how do you want to play? -->
 <div id="choose" hidden>
-  <div class="title">ICY TOWER</div>
+  <div class="title">אייסי טאוור</div>
   <div class="sub">איך רוצים לשחק?</div>
   <div class="cards">
     <button data-mode="touch">
@@ -57,7 +61,7 @@
 <input id="nameInput" maxlength="10" autocomplete="nickname" enterkeyhint="done" hidden aria-label="השם שלך">
 
 <div id="loading">
-  <div class="title">ICY TOWER</div>
+  <div class="title">אייסי טאוור</div>
   <div class="sub">מהדורת סופר מריו</div>
   <div class="bar"><i id="loadBar"></i></div>
   <div id="loadMsg">טוען את המגדל...</div>

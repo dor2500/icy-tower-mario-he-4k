@@ -41,13 +41,17 @@ Copy-Item "$W\dl\cnc-ddraw\x\Shaders\xbrz" "$A\Shaders\" -Recurse   # HD / 8K lo
 Copy-Item "$T\ddraw.ini" $A
 Copy-Item "$W\he_images\mario.ico" "$W\installer\mario.ico"
 
-# 5. installer
+# 5. HTML version: the same graphics (6x xBRZ for HD/8K), fonts and sounds -> web\assets (needs work\bin\xbrz_cli.exe,
+#    see tools\xbrz\xbrz_cli.cpp). Without -MarioAudio the web version has no music.
+if (Test-Path "$W\bin\xbrz_cli.exe") { py "$T\build_web.py" $A "$R\web\assets" "$W\bin\xbrz_cli.exe" }
+
+# 6. the extended edition for the desktop: the HTML version (stages, levels, characters, auto play, ads mode) in a
+#    WebView2 window on the strong GPU -> he_app\extended\IcyMario.exe (tools\desktop)
+& "$T\desktop\build_desktop.ps1" -Out "$A\extended" -Icon "$W\he_images\mario.ico"
+
+# 7. installer (classic game + extended edition)
 if (-not $NoInstaller) {
   & "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" /Q "$W\installer\icytower_he.iss"
   if ($LASTEXITCODE) { throw 'ISCC failed' }
 }
-
-# 6. HTML version: the same graphics (6x xBRZ for HD/8K), fonts and sounds -> web\assets (needs work\bin\xbrz_cli.exe,
-#    see tools\xbrz\xbrz_cli.cpp). Without -MarioAudio the web version has no music.
-if (Test-Path "$W\bin\xbrz_cli.exe") { py "$T\build_web.py" $A "$R\web\assets" "$W\bin\xbrz_cli.exe" }
 "done: $A"

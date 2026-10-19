@@ -23,12 +23,18 @@ export const STAGES = [
 //   maxL: top speed (px per tick), startL: speed when the tower starts, combo: combo timer (ticks)
 //   moving / crumble: share of floors that move / crumble, skip: share of floors left out (never 2 in a row)
 //   zigzag: each floor on the other side of the tower from the one below.  "בינוני" is the original game, untouched.
+//   look: how the level looks - floor graphics (set) + atmosphere: tint over the back wall, wall shade, sky, fog,
+//         lava + embers + a pulsing red frame (the hell of "impossible")
 export const DIFFS = [
-  { id: 'easy', name: 'קל', desc: 'קומות רחבות, ומגדל איטי ונינוח', widen: 4, minW: 9, full: 125, step: 2250, maxL: 3, startL: 0, combo: 140 },
+  { id: 'easy', name: 'קל', desc: 'קומות רחבות, ומגדל איטי ונינוח', widen: 4, minW: 9, full: 125, step: 2250, maxL: 3, startL: 0, combo: 140,
+    look: { set: 8, tint: '#8fd8ff', tintA: 0.28, sky: true } },
   { id: 'normal', name: 'בינוני', desc: 'המשחק המקורי בדיוק', original: true },
-  { id: 'hard', name: 'קשה', desc: 'קומות צרות, חסרות קומות, מאיץ כל 20 שניות', widen: -2, minW: 4, full: 500, step: 1000, maxL: 6, startL: 0, combo: 90, skip: 0.1 },
-  { id: 'expert', name: 'מומחה', desc: 'זיגזג של קומות צרות מאוד, חלקן זזות', widen: -4, minW: 3, full: 1000, step: 750, maxL: 7, startL: 1, combo: 80, moving: 0.15, skip: 0.2, zigzag: true },
-  { id: 'insane', name: 'בלתי אפשרי', desc: 'קומות זעירות שזזות ומתפוררות, מהירות מטורפת', minW: 2, maxW: 3, full: 0, step: 500, maxL: 8, startL: 2, combo: 70, moving: 0.25, crumble: 0.2, skip: 0.3, zigzag: true },
+  { id: 'hard', name: 'קשה', desc: 'קומות צרות, חסרות קומות, מאיץ כל 20 שניות', widen: -2, minW: 4, full: 500, step: 1000, maxL: 6, startL: 0, combo: 90, skip: 0.1,
+    look: { set: 3, tint: '#ff7a1a', tintA: 0.2, wallA: 0.12 } },
+  { id: 'expert', name: 'אקסטרים', desc: 'זיגזג של קומות צרות מאוד, חלקן זזות', widen: -4, minW: 3, full: 1000, step: 750, maxL: 7, startL: 1, combo: 80, moving: 0.15, skip: 0.2, zigzag: true,
+    look: { set: 5, tint: '#6a1cff', tintA: 0.3, wallA: 0.35, fog: true } },
+  { id: 'insane', name: 'בלתי אפשרי', desc: 'קומות זעירות שזזות ומתפוררות, מהירות מטורפת', minW: 2, maxW: 3, full: 0, step: 500, maxL: 8, startL: 2, combo: 70, moving: 0.25, crumble: 0.2, skip: 0.3, zigzag: true,
+    look: { set: 10, tint: '#ff1a00', tintA: 0.32, wallA: 0.3, wallTint: '#5a0000', lava: true, embers: true, vignette: true } },
 ];
 
 const KEY = 'icymario.stages';

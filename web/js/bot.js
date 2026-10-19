@@ -6,15 +6,18 @@ export function makeBot(opt = {}) {
   let plan = [];
   const style = opt.style || 'combo';
 
-  function simulate(g, dir, delay, hold) {
+  // a move: run `dir` (after `turn` ticks of running the other way: turn around / bounce off the wall to gain speed),
+  // jump at tick `delay`, keep the direction for `hold` ticks in the air, then steer `air` (-1 / 0 / 1 relative to dir)
+  function simulate(g, dir, delay, hold, turn = 0, air = 0) {
     const s = g.clone();
     const startFloor = s.p.floor, startCombo = s.p.cFloors * (s.p.cTimer > 0);
     const acts = [];
     let jumped = false, t = 0;
     for (; t < 160; t++) {
-      const inp = { left: dir < 0, right: dir > 0, jump: false };
+      const d = t < turn ? -dir : dir;
+      const inp = { left: d < 0, right: d > 0, jump: false };
       if (t >= delay && !jumped && s.p.state === 0) { inp.jump = true; jumped = true; }
-      if (jumped && t > delay + hold) { inp.left = inp.right = false; }
+      if (jumped && t > delay + hold) { const a = dir * air; inp.left = a < 0; inp.right = a > 0; }
       acts.push(inp);
       s.tick(inp);
       if (s.p.dead) return { score: -1e9, acts };
@@ -39,12 +42,21 @@ export function makeBot(opt = {}) {
     const p = g.p;
     if (p.state === 0 && !plan.length) {
       let best = null;
+      const take = r => { if (!best || r.score > best.score) best = r; };
       for (const dir of [-1, 1]) {
         for (const delay of [0, 2, 4, 6, 8, 11, 14, 18, 22, 27, 33, 40]) {
-          for (const hold of [200, 6]) {
-            const r = simulate(g, dir, delay, hold);
-            if (!best || r.score > best.score) best = r;
+          for (const hold of [200, 6]) take(simulate(g, dir, delay, hold));
+        }
+      }
+      // the harder maps (narrow, zigzag, gaps): turn around / bounce off the wall first, steer in the air
+      if (style !== 'classic' && (g.df || g.st) && best.score < 40) {
+        for (const dir of [-1, 1]) {
+          for (const turn of [4, 8, 13, 19, 26]) {
+            for (const run of [3, 7, 11, 16, 22, 30]) {
+              for (const air of [0, -1]) take(simulate(g, dir, turn + run, air ? 3 : 200, turn, air));
+            }
           }
+          for (const delay of [0, 4, 9, 15, 22]) for (const hold of [2, 8, 14]) take(simulate(g, dir, delay, hold, 0, -1));
         }
       }
       plan = best.acts.slice();
