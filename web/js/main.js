@@ -7,6 +7,7 @@ import { STAGES, DIFFS, progress, markDone } from './stages.js';
 import { makeBot } from './bot.js';
 import { CHARS, getChar, setChar, prepare, drawPortrait, drawCard } from './chars.js';
 import * as Ads from './ads.js';
+import * as Custom from './custom.js';
 
 const TICK = 20;                                       // 50 logic ticks per second, like the original
 const $ = s => document.querySelector(s);
@@ -342,35 +343,49 @@ const Levels = {
   },
 };
 
-// character select: Mario's family (recoloured sprites) + guests from Minecraft, Goat Simulator, Among Us, Pac-Man.
-// 5 x 2 cards, right to left (Hebrew order); arrows + Enter, or tap a card (tap again = choose)
+// character select: Mario's family (recoloured sprites) + guests from Minecraft, Goat Simulator, Among Us, Pac-Man
+// + "your picture" (custom.js: any image becomes a character). 6 x 2 cards, right to left (Hebrew order);
+// arrows + Enter, or tap a card (tap again = choose). The last card uploads / replaces the picture.
 const Chars = {
-  COLS: 5, W: 118, H: 150, X0: 616, Y0: 72,
-  enter() { this.sel = Math.max(0, CHARS.indexOf(getChar())); this.t = 0; prepare(CHARS[this.sel]); },
+  COLS: 6, W: 100, H: 150, X0: 620, Y0: 72,
+  get N() { return CHARS.length + 1; },               // the characters + the "upload" card
+  enter() { this.sel = Math.max(0, CHARS.indexOf(getChar())); this.t = 0; this.msg = ''; prepare(CHARS[this.sel]); },
   cell(i) { return { x: this.X0 - (i % this.COLS + 1) * this.W, y: this.Y0 + Math.floor(i / this.COLS) * (this.H + 10) }; },
   move(i) { this.sel = i; S.play('S_MENU_CHANGE'); if (i < CHARS.length) prepare(CHARS[i]); },
   pick(i) {
     S.play('S_MENU_CHOOSE');
+    if (i === CHARS.length) { this.upload(); return; }
     if (i < CHARS.length) { setChar(CHARS[i].id); cfg.char = CHARS[i].id; saveCfg(); }
     go(Menu);
   },
+  upload() {
+    if (this.busy) return;
+    this.busy = true; this.msg = 'בחרו תמונה...';
+    Custom.pickImage().then(ok => {
+      this.busy = false;
+      if (!ok) { this.msg = ''; return; }
+      setChar('custom'); cfg.char = 'custom'; saveCfg();
+      this.sel = CHARS.indexOf(Custom.custom); this.msg = 'הדמות מוכנה! אנטר או הקשה כדי לשחק איתה';
+      S.play('S_CHEER', 0.6);
+    });
+  },
   update(p, taps) {
     this.t++;
-    const n = CHARS.length, back = n;                  // "חזרה" = index n
+    const n = this.N, back = n;                      // "חזרה" = index n
     if (p.has('back')) { go(Menu); return; }
     if (p.has('left')) this.move(this.sel === back ? n - 1 : (this.sel + 1) % n);   // right to left
     if (p.has('right')) this.move(this.sel === back ? 0 : (this.sel + n - 1) % n);
     if (p.has('down')) this.move(this.sel === back ? this.sel % this.COLS : this.sel + this.COLS < n ? this.sel + this.COLS : back);
-    if (p.has('up')) this.move(this.sel === back ? n - this.COLS : this.sel >= this.COLS ? this.sel - this.COLS : back);
+    if (p.has('up')) this.move(this.sel === back ? Math.min(n - 1, this.COLS) : this.sel >= this.COLS ? this.sel - this.COLS : back);
     for (const t of taps) {
       for (let i = 0; i < n; i++) {
         const c = this.cell(i);
         if (t.x >= c.x && t.x < c.x + this.W - 6 && t.y >= c.y && t.y < c.y + this.H) {
-          if (i === this.sel) this.pick(i); else this.move(i);
+          if (i === this.sel || i === CHARS.length) { this.sel = i; this.pick(i); } else this.move(i);
           return;
         }
       }
-      if (t.y > 400) { this.pick(back); return; }
+      if (t.y > 420) { this.pick(back); return; }
     }
     if (p.has('ok')) this.pick(this.sel);
   },
@@ -380,21 +395,32 @@ const Chars = {
     G.rect(G.view().x, 0, G.view().w, 60, '#000', 0.45);
     G.text('FONT1', 'בחרו דמות', 320, 8, 'center');
     const t = this.t + a;
-    CHARS.forEach((ch, i) => {
-      const c = this.cell(i), on = i === this.sel;
+    for (let i = 0; i < this.N; i++) {
+      const c = this.cell(i), on = i === this.sel, ch = CHARS[i];
       ctx.save();
       ctx.fillStyle = on ? 'rgba(255,212,0,0.2)' : 'rgba(10,4,16,0.66)';
       ctx.strokeStyle = on ? '#ffd400' : '#120818'; ctx.lineWidth = on ? 3 : 2.5;
       ctx.beginPath(); ctx.roundRect(c.x + 3, c.y, this.W - 6, this.H, 12); ctx.fill(); ctx.stroke();
+      if (!ch) {                                       // the upload card: a picture icon with a big "+"
+        const cx = c.x + this.W / 2, cy = c.y + 62, b = 1 + (on ? 0.06 * Math.sin(t / 6) : 0);
+        ctx.translate(cx, cy); ctx.scale(b, b);
+        ctx.fillStyle = '#e9e4f5'; ctx.strokeStyle = '#120818'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.roundRect(-30, -24, 60, 46, 7); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#7fd06a'; ctx.beginPath(); ctx.moveTo(-26, 18); ctx.lineTo(-8, -4); ctx.lineTo(4, 10); ctx.lineTo(12, 2); ctx.lineTo(26, 18); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#ffd21a'; ctx.beginPath(); ctx.arc(14, -10, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#e8202a'; ctx.beginPath(); ctx.arc(26, 20, 13, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(26, 13); ctx.lineTo(26, 27); ctx.moveTo(19, 20); ctx.lineTo(33, 20); ctx.stroke();
+      }
       ctx.restore();
-      drawCard(ch, on ? t : t + i * 37, c.x + this.W / 2, c.y + 104, on ? 1.55 : 1.35, on);
-      G.smallText(ch.name, c.x + this.W / 2, c.y + 112, 'center');
-      G.smallText(ch.game, c.x + this.W / 2, c.y + 130, 'center');
-    });
+      if (ch) drawCard(ch, on ? t : t + i * 37, c.x + this.W / 2, c.y + 104, on ? 1.5 : 1.3, on);
+      G.smallText(ch ? ch.name : Custom.custom.img ? 'תמונה חדשה' : 'דמות מתמונה', c.x + this.W / 2, c.y + 112, 'center');
+      G.smallText(ch ? ch.game : 'העלאת תמונה', c.x + this.W / 2, c.y + 130, 'center');
+    }
     const ch = CHARS[this.sel];
-    G.text('FONT2', ch ? `${ch.name}: ${ch.desc}` : '', 320, 404, 'center');
-    G.text('FONT2', 'חזרה', 320, 438, 'center', { alpha: this.sel === CHARS.length ? 1 : 0.7 });
-    if (this.sel === CHARS.length) { const w = G.textWidth('FONT2', 'חזרה'); G.img('MENU_BULLET', 320 + w / 2 + 6, 430, { flip: true, scale: 0.6, cx: 336 + w / 2, cy: 456 }); }
+    const line = this.msg || (ch ? `${ch.name}: ${ch.desc}` : this.sel === CHARS.length ? 'כל תמונה הופכת לדמות: הרקע נמחק, ומקבלים קו מתאר ונעליים' : '');
+    G.smallText(line, 320, 400, 'center');
+    G.text('FONT2', 'חזרה', 320, 432, 'center', { alpha: this.sel === this.N ? 1 : 0.7 });
+    if (this.sel === this.N) { const w = G.textWidth('FONT2', 'חזרה'); G.img('MENU_BULLET', 320 + w / 2 + 6, 424, { flip: true, scale: 0.6, cx: 336 + w / 2, cy: 450 }); }
   },
 };
 
@@ -734,6 +760,8 @@ function frame(now) {
     return;
   }
   $('#loading').hidden = true;
+  await Custom.init();                                 // the character from your picture (if there is one)
+  setChar(cfg.char);
   prepare(getChar());
   go(Menu);
   toHost('ready');
