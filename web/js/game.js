@@ -243,11 +243,12 @@ export class Game {
     // death
     if (p.y > 540 && !p.dead) {
       p.dead = 1; p.cTimer = 0;
-      this.snd('C_death'); this.snd('S_GAMEOVER', 0.9);
+      this.snd('C_death');
       this.deadT = 1;
     }
     if (p.dead) {
       this.deadT++;
+      if (this.deadT === 40) this.snd('S_GAMEOVER');      // "מאמא מיה! המשחק נגמר!" after the fall sound
       if (p.y > 900 && !this.splat) { this.splat = true; this.snd('S_SPLAT', 0.6); }
       if (this.deadT > Math.min(250, Math.max(p.floor * 5, 120))) this.ended = true;
     }

@@ -31,6 +31,8 @@ if ($MarioAudio) { & "$T\import_mario_audio.ps1" -Src $MarioAudio -Char "$A\char
 # music in the game is Mario's own [bgmusic] (smb_theme.wav, set by import_mario_audio.ps1)
 if ($MarioAudio) { py "$T\set_music.py" "$orig\data\sfx13.dat" "$A\data\sfx13.dat" "$A\characters\super_mario\smb_theme.wav" }
 else { py "$T\set_music.py" "$orig\data\sfx13.dat" "$A\data\sfx13.dat" }
+# the spoken lines ("Good!", "Hurry up!" ...) in Hebrew, Mario-style voice (tools\voice, made by make_voice.py)
+py "$T\set_voice.py" "$A\data\sfx13.dat" "$T\voice"
 py "$T\set_default_char.py" "$W\tower.cfg.bak" "$A\tower.cfg" super_mario
 Copy-Item "$W\dl\cnc-ddraw\x\ddraw.dll" $A
 New-Item -ItemType Directory -Force "$A\Shaders" | Out-Null
