@@ -29,9 +29,10 @@ export class Game {
     this.opt = opt;
     this.seed = (opt.seed ?? (Date.now() & 0x7fffffff)) >>> 0;
     this.rows = [];
+    this.ahead = opt.ahead || 0;                   // extra view above the 480 px (phone held upright)
     this.R = 0;                                    // rows generated
     this.S = 0;                                    // scroll (px)
-    for (let i = 0; i < 30; i++) this.genRow();
+    this.fillRows();
     this.p = {
       x: 200, y: 430, vx: 0.001, vy: 0, state: 0, latch: false, cart: false, ang: 0, floor: 0,
       cTimer: 0, cFloors: 0, cJumps: 0, bonus: 0, best: 0, dead: 0, edge: 0, edgeT: 0,
@@ -85,17 +86,24 @@ export class Game {
     }
     if (r % 50 === 0) row.sign = ((r + 1) / 5) | 0;
     this.rows[r] = row;
-    if (r > 64) this.rows[r - 64] = undefined;    // keep memory flat on long games
+    const keep = 72 + Math.ceil(this.ahead / 16);
+    if (r > keep) this.rows[r - keep] = undefined; // keep memory flat on long games
     this.R++;
   }
 
-  rowIndexAt(py) { return (this.R - 3) - ((py + 1) >> 4); }
+  // row under screen row m: the original ring buffer (32 rows, newest 2 rows above the screen) as absolute rows
+  base() { return 27 + Math.floor(this.S / 16); }
+  rowIndexAt(py) { return this.base() - ((py + 1) >> 4); }
+
+  // phone held upright: show more tower above the original 480 px (drawing only; the logic is unchanged)
+  setAhead(px) { this.ahead = Math.max(0, px); this.fillRows(); }
+  fillRows() { while (this.R < 30 + Math.floor(this.S / 16) + Math.ceil(this.ahead / 16)) this.genRow(); }
 
   // original 0x4118c0: 0 = no floor under this foot, else 10000 + distance to the row's top
   support(px, py) {
     const m = (py + 1) >> 4;
     if (29 - m < 0 || 29 - m > 31) return 0;
-    const row = this.rows[this.R - 3 - m];
+    const row = this.rows[this.base() - m];
     if (!row || row.type !== 0) return 0;
     const col = Math.floor(px / 16);
     if (row.l > col || row.rt < col) return 0;
@@ -200,13 +208,13 @@ export class Game {
       const k = this.L === 0 ? (this.frame & 1) : this.L;
       this.S += k; p.y += k;
     } else if (!p.dead) this.timer = 0;
-    if (this.hurryY + 99 <= 578 && this.hurryY >= -99) this.hurryY -= 2;
+    if (this.hurryY + 99 <= 578 && this.hurryY >= -99 - this.ahead) this.hurryY -= 2;
     if (!p.dead && this.L >= 0 && this.L < 5 && this.timer > SPEED_STEP * (this.idx + 1)) {
       this.L++; this.idx++;
       this.hurryY = 479;
       this.snd('S_RING'); this.snd('S_HURRYUP');
     }
-    while (this.R < 30 + Math.floor(this.S / 16)) this.genRow();
+    this.fillRows();
 
     if (!p.dead) this.collide(p);
     if (p.cart) p.ang += 8;
@@ -284,16 +292,17 @@ export class Game {
 
     // the tower's curved back wall (BGSTRIP, built like the original): half-speed parallax
     const bgOff = ((Sv % 128) + 128) % 128 / 2;
-    for (let i = -1; i <= 7; i++) G.part('BGSTRIP', 60, 0, 520, 64, 60, i * 64 + bgOff);
+    const up = this.ahead;                            // extra view above (phone held upright)
+    for (let i = -1 - Math.ceil(up / 64); i <= 7; i++) G.part('BGSTRIP', 60, 0, 520, 64, 60, i * 64 + bgOff);
 
     // hurry up! banner (behind the floors, like the original)
-    if (this.hurryY + 99 <= 578 && this.hurryY >= -99) {
+    if (this.hurryY + 99 <= 578 && this.hurryY >= -99 - up) {
       const [hw] = G.size('HURRYUP');
       G.img('HURRYUP', 320 - (hw >> 1), this.hurryY + 2 * a * -1);
     }
 
     // floors
-    const rFirst = Math.max(0, Math.floor((Sv + TOP - 520) / 16)), rLast = Math.ceil((Sv + TOP + 60) / 16);
+    const rFirst = Math.max(0, Math.floor((Sv + TOP - 520) / 16)), rLast = Math.ceil((Sv + TOP + 60 + up) / 16);
     for (let r = rFirst; r <= rLast; r++) {
       const row = this.rows[r];
       if (!row || row.type !== 0) continue;
@@ -333,7 +342,7 @@ export class Game {
     // walls: scroll 1.476x the floor speed (foreground parallax)
     const wallOff = (((Sv % 84) + 84) % 84) * 1.476 - 124;
     const m = G.getMargin();                         // full-screen phone: the walls continue to the screen edges
-    for (let k = 0; k < 5; k++) {
+    for (let k = -Math.ceil(up / 124); k < 5; k++) {
       for (let x = 565; x < 640 + m; x += 132) G.img('SIDEBLOCK', x, wallOff + k * 124);
       for (let x = -57; x + 132 > -m; x -= 132) G.img('SIDEBLOCK', x, wallOff + k * 124, { flip: true });
     }
@@ -343,22 +352,25 @@ export class Game {
 
   drawHud(a) {
     const p = this.p;
+    const T = -this.ahead;                            // clock + combo meter at the top of the screen
+    const mid = (480 - this.ahead) / 2;              // middle of the screen
     // clock: one turn per speed step, shakes just before the next speed-up
     let sx = 0, sy = 0;
     const t = this.L >= 0 ? this.timer % SPEED_STEP : 0;
     if (this.L >= 0 && this.L < 5 && t > SPEED_STEP - 100) { sx = (this.frame % 3) - 1; sy = ((this.frame >> 1) % 3) - 1; }
+    sy += T;
     G.img('CLOCK', 5 + sx, 10 + sy);
     G.img('CLOCK_HAND', 41 - 8.5 + sx, 58 - 29.5 + sy, { rot: (t + a) / SPEED_STEP * Math.PI * 2, cx: 41 + sx, cy: 58 + sy });
 
     // combo meter + liquid
-    G.img('COMBO_METER', 20, 100);
+    G.img('COMBO_METER', 20, 100 + T);
     if (p.cTimer > 0) {
       const lv = Math.min(100, p.cTimer);
-      G.part('COMBO_LIQUID', 0, 100 - lv, 16, lv, 31, 219 - lv);
+      G.part('COMBO_LIQUID', 0, 100 - lv, 16, lv, 31, 219 - lv + T);
     }
     if (p.cTimer > 0 && p.cFloors > 0) {
-      G.img('COMBO_COUNT', -10, 210);
-      G.text('FONT1', String(p.cFloors), 40, 214, 'center');
+      G.img('COMBO_COUNT', -10, 210 + T);
+      G.text('FONT1', String(p.cFloors), 40, 214 + T, 'center');
     }
 
     // score (the Hebrew string of the patched exe: "ניקוד: %d")
@@ -371,12 +383,12 @@ export class Game {
       const tt = this.reward.t + a;
       const sc = tt < 8 ? 0.3 + 0.7 * (tt / 8) * (2 - tt / 8) : 1;
       const al = tt > 70 ? Math.max(0, (80 - tt) / 10) : 1;
-      G.img(name, 320 - w / 2, 200 - h / 2, { scale: sc, alpha: al, cx: 320, cy: 200 });
+      G.img(name, 320 - w / 2, mid - 40 - h / 2, { scale: sc, alpha: al, cx: 320, cy: mid - 40 });
     }
     if (p.dead) {
       const [w, h] = G.size('GAMEOVER');
       const tt = Math.min(1, (this.deadT + a) / 25);
-      G.img('GAMEOVER', 320 - w / 2, 240 - h / 2 - (1 - tt) * 300);
+      G.img('GAMEOVER', 320 - w / 2, mid - h / 2 - (1 - tt) * 300);
     }
   }
 }

@@ -26,6 +26,10 @@ export function layout(rect, dpr) {
   margin = offX > 0 ? offX / scale : 0;
 }
 export const getMargin = () => margin;
+// the whole canvas in logical coordinates (larger than 640x480 in the full-screen phone modes)
+export function view() {
+  return { x: -offX / scale, y: -offY / scale, w: canvas.width / scale, h: canvas.height / scale };
+}
 
 export function begin() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -35,7 +39,8 @@ export function begin() {
   ctx.imageSmoothingEnabled = mode === 'hd';
   ctx.imageSmoothingQuality = 'high';
   ctx.save();
-  ctx.beginPath(); ctx.rect(-margin, 0, W + 2 * margin, H); ctx.clip();
+  const v = view();
+  ctx.beginPath(); ctx.rect(v.x, v.y, v.w, v.h); ctx.clip();
 }
 export function end() { ctx.restore(); }
 
@@ -60,12 +65,13 @@ export function img(name, x, y, o) {
   }
   ctx.save();
   if (o.alpha !== undefined) ctx.globalAlpha = o.alpha;
-  if (o.rot || o.flip || o.scale) {
+  if (o.rot || o.flip || o.flipY || o.scale) {
     const cx = o.cx !== undefined ? o.cx : x + w / 2, cy = o.cy !== undefined ? o.cy : y + h / 2;
     ctx.translate(snap(cx), snap(cy));
     if (o.rot) ctx.rotate(o.rot);
     if (o.scale) ctx.scale(o.scale, o.scale);
     if (o.flip) ctx.scale(-1, 1);
+    if (o.flipY) ctx.scale(1, -1);
     ctx.drawImage(im, x - cx, y - cy, w, h);
   } else {
     ctx.drawImage(im, snap(x), snap(y), w, h);

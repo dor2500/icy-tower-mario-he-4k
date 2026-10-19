@@ -25,9 +25,10 @@ S.init(cfg);
 G.setMode(cfg.gfx);
 
 // ------------------------------------------------------------------ control mode
-// phone/tablet: asks at every start "buttons" (buttons under the picture) or "touch" (full screen, landscape,
+// phone/tablet: asks at every start "buttons" (buttons under the picture) or "touch" (full screen top to bottom,
 // no buttons: hold a side to run, swipe up / second finger to jump). Computer: unchanged ('desktop').
-const PHONE = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+// (some phones also report a "fine" pointer, so: primary pointer coarse + a touch screen)
+const PHONE = matchMedia('(pointer: coarse)').matches && navigator.maxTouchPoints > 0;
 let mode = PHONE ? 'buttons' : 'desktop';
 const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 const canFull = () => !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
@@ -38,8 +39,7 @@ function enterFull() {
   if (!req || isFull()) return;
   try {
     const p = req.call(el, { navigationUI: 'hide' });
-    const lock = () => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {});
-    if (p && p.then) p.then(lock).catch(() => {}); else lock();
+    if (p && p.catch) p.catch(() => {});
   } catch (e) { /* not allowed here */ }
 }
 function setMode(m) {
@@ -80,25 +80,39 @@ function resize() {
     x = (vw - w) / 2; y = (vh - h) / 2;
   }
   rect = { x, y, w, h };
-  // full-touch mode: the canvas is the whole screen (the walls fill the sides); otherwise just the picture
+  // full-touch mode: the canvas is the whole screen; otherwise just the picture
   const c = mode === 'touch' ? { x: 0, y: 0, w: vw, h: vh } : rect;
   Object.assign(canvas.style, { left: c.x + 'px', top: c.y + 'px', width: c.w + 'px', height: c.h + 'px' });
   // render resolution: the screen's own pixels, or supersampled 4K / 8K
   let k = dpr;
   if (cfg.res === '4k') k = Math.max(dpr, 2160 / h);
   if (cfg.res === '8k') k = Math.max(dpr, 4320 / h);
-  k = Math.min(k, 7680 / c.w, 5760 / c.h);
+  k = Math.min(k, 7680 / c.w, 7680 / c.h);
   canvas.width = Math.round(c.w * k); canvas.height = Math.round(c.h * k);
-  G.layout({ x: x - c.x, y: y - c.y, w }, k);
+  view = { c, k, vh };
+  layoutView();
   document.documentElement.style.setProperty('--gameBottom', (y + h) + 'px');
   document.documentElement.style.setProperty('--gameH', h + 'px');
+}
+// Full touch, phone held upright: the 640x480 picture spans the screen width; in game it sits at the bottom and
+// the space above shows more of the tower (Game.setAhead), in the menus it is centred. Landscape: the walls fill
+// the sides. Called on every screen change.
+let view = null;
+function upright() { return mode === 'touch' && view && view.vh > rect.h + 1; }
+function aheadPx() { return upright() ? (view.vh - rect.h) * 640 / rect.w : 0; }
+function layoutView() {
+  if (!view) return;
+  if (upright()) rect.y = screen === Play || screen === Pause || screen === GameOver ? view.vh - rect.h : (view.vh - rect.h) / 2;
+  G.layout({ x: rect.x - view.c.x, y: rect.y - view.c.y, w: rect.w }, view.k);
+  if (Play.game) Play.game.setAhead(aheadPx());
 }
 addEventListener('resize', resize);
 addEventListener('orientationchange', () => setTimeout(resize, 200));
 
 function toLogical(cx, cy) {
   const x = (cx - rect.x) / rect.w * 640, y = (cy - rect.y) / rect.h * 480;
-  return x >= 0 && y >= 0 && x < 640 && y < 480 ? { x, y } : null;
+  const v = G.view();                                // whole canvas (bigger than 640x480 in full-touch mode)
+  return x >= v.x && y >= v.y && x < v.x + v.w && y < v.y + v.h ? { x, y } : null;
 }
 
 // ------------------------------------------------------------------ assets
@@ -130,12 +144,17 @@ async function loadAll() {
 // ------------------------------------------------------------------ screens
 // full-screen phone: backgrounds continue (mirrored) into the side areas, overlays dim the whole screen
 function wideBg(name) {
-  G.img(name, 0, 0);
-  if (G.getMargin()) { G.img(name, -640, 0, { flip: true }); G.img(name, 640, 0, { flip: true }); }
+  const v = G.view();
+  for (let gy = Math.floor(v.y / 480); gy * 480 < v.y + v.h; gy++) {
+    for (let gx = Math.floor(v.x / 640); gx * 640 < v.x + v.w; gx++) {
+      const fx = gx & 1, fy = gy & 1;
+      G.img(name, gx * 640, gy * 480, fx || fy ? { flip: !!fx, flipY: !!fy } : undefined);
+    }
+  }
 }
-const dim = (color, alpha) => { const m = G.getMargin(); G.rect(-m, 0, 640 + 2 * m, 480, color, alpha); };
+const dim = (color, alpha) => { const v = G.view(); G.rect(v.x, v.y, v.w, v.h, color, alpha); };
 let screen = null;
-const go = s => { screen = s; document.body.classList.toggle('playing', s === Play); s.enter && s.enter(); };
+const go = s => { screen = s; document.body.classList.toggle('playing', s === Play); layoutView(); s.enter && s.enter(); };
 
 const SCROLLER = ['ברוכים הבאים ל-Icy Tower!', 'עוד משחק מבית Free Lunch Design.',
   'עזרו לסופר מריו לטפס הכי גבוה שאפשר!', 'זזים עם החצים וקופצים עם מקש הרווח.', 'בטלפון: כפתורי החצים והקפיצה בתחתית המסך.', 'בהצלחה!'];
@@ -208,22 +227,23 @@ const Menu = {
     this.list.draw(this.t + a, ['התחל משחק', 'הוראות', 'אפשרויות', isFull() ? 'יציאה ממסך מלא' : 'מסך מלא']);
     drawScoreTable();
     // bottom band with the scroller
-    const m = G.getMargin();
-    G.rect(-m, 450, 640 + 2 * m, 6, '#101014');
-    G.rect(-m, 456, 640 + 2 * m, 24, '#1c104d');
+    const m = G.getMargin(), v = G.view();
+    const by = Math.max(450, v.y + v.h - 30);         // phone held upright: the band sits at the bottom edge
+    G.rect(-m, by, 640 + 2 * m, 6, '#101014');
+    G.rect(-m, by + 6, 640 + 2 * m, Math.max(24, v.y + v.h - by - 6), '#1c104d');
     if (!this.scrollW) this.scrollW = SCROLLER.reduce((w, s) => w + G.textWidth('FONT2', s) + 60, 0) + 640 + 2 * m;
     const x = 640 + m - ((this.scroll + 2 * a) % this.scrollW);
     const ctx = G.context();
-    ctx.save(); ctx.beginPath(); ctx.rect(-m, 450, 640 + 2 * m, 30); ctx.clip();
+    ctx.save(); ctx.beginPath(); ctx.rect(-m, by, 640 + 2 * m, 30); ctx.clip();
     let xx = x;
-    for (const s of SCROLLER) xx += G.text('FONT2', s, xx, 449) + 60;
+    for (const s of SCROLLER) xx += G.text('FONT2', s, xx, by - 1) + 60;
     ctx.restore();
   },
 };
 
 const Instructions = {
   update(p, taps) { if (p.has('any') || p.has('back') || taps.length) { S.play('S_MENU_CHOOSE'); go(Menu); } },
-  draw() { G.img('INSTRUCTIONS', 0, 0); },
+  draw() { if (G.getMargin() || G.view().h > 481) wideBg('TITLE_BG'); G.img('INSTRUCTIONS', 0, 0); },
 };
 
 const yesNo = v => v ? 'כן' : 'לא';
@@ -272,7 +292,7 @@ const Options = {
 
 const Play = {
   game: null,
-  start(seed) { this.game = new Game({ rejump: cfg.rejump, seed }); return this; },
+  start(seed) { this.game = new Game({ rejump: cfg.rejump, seed, ahead: aheadPx() }); return this; },
   enter() { S.music(true); },
   update(p) {
     if (p.has('pause') || p.has('back')) { go(Pause); return; }
@@ -285,19 +305,20 @@ const Play = {
     const t = this.game.frame + a;
     if (mode === 'touch' && t < 260) {
       const al = Math.min(1, (260 - t) / 40) * 0.9;
-      G.rect(64, 0, 254, 480, '#000', 0.22 * al);
-      G.rect(322, 0, 254, 480, '#fff', 0.06 * al);
-      G.text('FONT1', '<', 150, 200, 'center', { alpha: al, visual: true });
-      G.text('FONT1', '>', 490, 200, 'center', { alpha: al, visual: true });
-      G.text('FONT2', 'החזיקו כאן', 190, 250, 'center', { alpha: al });
-      G.text('FONT2', 'החזיקו כאן', 450, 250, 'center', { alpha: al });
-      G.text('FONT2', 'החלקה למעלה או אצבע שנייה: קפיצה', 320, 330, 'center', { alpha: al });
+      const v = G.view(), my = v.y + v.h / 2;
+      G.rect(v.x, v.y, 320 - v.x - 2, v.h, '#000', 0.22 * al);
+      G.rect(322, v.y, v.x + v.w - 322, v.h, '#fff', 0.06 * al);
+      G.text('FONT1', '<', 150, my - 60, 'center', { alpha: al, visual: true });
+      G.text('FONT1', '>', 490, my - 60, 'center', { alpha: al, visual: true });
+      G.text('FONT2', 'החזיקו כאן', 160, my - 10, 'center', { alpha: al });
+      G.text('FONT2', 'החזיקו כאן', 480, my - 10, 'center', { alpha: al });
+      G.text('FONT2', 'החלקה למעלה או אצבע שנייה: קפיצה', 320, my + 60, 'center', { alpha: al });
     }
   },
 };
 
 const Pause = {
-  enter() { this.list = menuList(['המשך', 'התחל מחדש', 'תפריט ראשי'], 215, 210, 40); S.play('C_pause'); },
+  enter() { this.dy = Math.round(-aheadPx() / 2); this.list = menuList(['המשך', 'התחל מחדש', 'תפריט ראשי'], 215, 210 + this.dy, 40); S.play('C_pause'); },
   update(p, taps) {
     if (p.has('pause') || p.has('back')) { go(Play); return; }
     const r = this.list.handle(p, taps);
@@ -308,9 +329,12 @@ const Pause = {
   draw(a) {
     Play.game.draw(0);
     dim('#000', 0.45);
+    const ctx = G.context();
+    ctx.save(); ctx.translate(0, this.dy || 0);       // phone held upright: the panel in the middle of the screen
     G.img('REPLAY_BG', 103, 25);
     G.text('FONT1', 'המשחק מושהה', 320, 90, 'center');
     G.text('FONT2', PHONE ? 'הקישו על בחירה' : 'ESC ליציאה', 320, 140, 'center');
+    ctx.restore();
     this.list.draw(performance.now() / 50);
   },
 };
@@ -325,7 +349,8 @@ const GameOver = {
     return this;
   },
   enter() {
-    this.list = menuList(['שחק שוב', 'תפריט ראשי'], 230, 330, 42);
+    this.dy = Math.round(-aheadPx() / 2);
+    this.list = menuList(['שחק שוב', 'תפריט ראשי'], 230, 330 + this.dy, 42);
     if (this.entering) {
       nameInput.value = this.name;
       nameInput.hidden = false;
@@ -356,6 +381,8 @@ const GameOver = {
   draw(a) {
     this.game.draw(0);
     dim('#000', 0.35);
+    const ctx = G.context();
+    ctx.save(); ctx.translate(0, this.dy || 0);       // phone held upright: the panel in the middle of the screen
     G.img('REPLAY_BG', 103, 25);
     if (this.entering) {
       const [hw] = G.size('HIGHSCORE');
@@ -365,12 +392,14 @@ const GameOver = {
       G.text('FONT1', this.name + blink, 320, 215, 'center', {});
       G.text('FONT2', 'ניקוד: ' + this.score, 320, 290, 'center');
       G.smallText('Enter / הקשה לשמירה', 320, 340, 'center');
+      ctx.restore();
       return;
     }
     G.text('FONT1', 'המשחק נגמר', 320, 60, 'center');
     G.text('FONT2', 'ניקוד: ' + this.score, 320, 140, 'center');
     G.text('FONT2', 'קומה: ' + this.floor, 320, 180, 'center');
     G.text('FONT2', 'הקומבו הטוב: ' + this.combo, 320, 220, 'center');
+    ctx.restore();
     this.list.draw(this.t + a);
   },
 };
