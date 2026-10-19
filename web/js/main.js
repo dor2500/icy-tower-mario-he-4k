@@ -24,12 +24,44 @@ const qualifies = sc => sc > 0 && (scores.length < 5 || sc > scores[scores.lengt
 S.init(cfg);
 G.setMode(cfg.gfx);
 
+// ------------------------------------------------------------------ control mode
+// phone/tablet: asks at every start "buttons" (buttons under the picture) or "touch" (full screen, landscape,
+// no buttons: hold a side to run, swipe up / second finger to jump). Computer: unchanged ('desktop').
+const PHONE = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+let mode = PHONE ? 'buttons' : 'desktop';
+const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+const canFull = () => !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+const standalone = () => matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
+function enterFull() {
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!req || isFull()) return;
+  try {
+    const p = req.call(el, { navigationUI: 'hide' });
+    const lock = () => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {});
+    if (p && p.then) p.then(lock).catch(() => {}); else lock();
+  } catch (e) { /* not allowed here */ }
+}
+function setMode(m) {
+  mode = m;
+  if (PHONE) { cfg.phoneMode = m; saveCfg(); }
+  I.setGestures(m === 'touch');
+  document.body.classList.toggle('gest', m === 'touch');
+  if (m === 'touch') enterFull();
+  else if (isFull() && PHONE) (document.exitFullscreen || document.webkitExitFullscreen || (() => {})).call(document);
+  resize();
+}
+// in touch mode a lost full screen (back button / swipe) comes back with the next tap
+addEventListener('pointerdown', () => { if (mode === 'touch' && !isFull()) enterFull(); }, { capture: true });
+
 // ------------------------------------------------------------------ layout
 let rect = { x: 0, y: 0, w: 640, h: 480 };
 function touchUI() {
+  if (mode === 'buttons') return true;
+  if (mode === 'touch') return false;
   if (cfg.touch === 'on') return true;
   if (cfg.touch === 'off') return false;
-  return matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+  return matchMedia('(pointer: coarse)').matches;
 }
 function resize() {
   const vw = innerWidth, vh = innerHeight, dpr = devicePixelRatio || 1;
@@ -48,14 +80,16 @@ function resize() {
     x = (vw - w) / 2; y = (vh - h) / 2;
   }
   rect = { x, y, w, h };
-  Object.assign(canvas.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
+  // full-touch mode: the canvas is the whole screen (the walls fill the sides); otherwise just the picture
+  const c = mode === 'touch' ? { x: 0, y: 0, w: vw, h: vh } : rect;
+  Object.assign(canvas.style, { left: c.x + 'px', top: c.y + 'px', width: c.w + 'px', height: c.h + 'px' });
   // render resolution: the screen's own pixels, or supersampled 4K / 8K
   let k = dpr;
   if (cfg.res === '4k') k = Math.max(dpr, 2160 / h);
   if (cfg.res === '8k') k = Math.max(dpr, 4320 / h);
-  k = Math.min(k, 7680 / w, 5760 / h);
-  canvas.width = Math.round(w * k); canvas.height = Math.round(h * k);
-  G.layout({ x: 0, y: 0, w }, k);
+  k = Math.min(k, 7680 / c.w, 5760 / c.h);
+  canvas.width = Math.round(c.w * k); canvas.height = Math.round(c.h * k);
+  G.layout({ x: x - c.x, y: y - c.y, w }, k);
   document.documentElement.style.setProperty('--gameBottom', (y + h) + 'px');
   document.documentElement.style.setProperty('--gameH', h + 'px');
 }
@@ -63,8 +97,7 @@ addEventListener('resize', resize);
 addEventListener('orientationchange', () => setTimeout(resize, 200));
 
 function toLogical(cx, cy) {
-  const r = canvas.getBoundingClientRect();
-  const x = (cx - r.left) / r.width * 640, y = (cy - r.top) / r.height * 480;
+  const x = (cx - rect.x) / rect.w * 640, y = (cy - rect.y) / rect.h * 480;
   return x >= 0 && y >= 0 && x < 640 && y < 480 ? { x, y } : null;
 }
 
@@ -95,8 +128,14 @@ async function loadAll() {
 }
 
 // ------------------------------------------------------------------ screens
+// full-screen phone: backgrounds continue (mirrored) into the side areas, overlays dim the whole screen
+function wideBg(name) {
+  G.img(name, 0, 0);
+  if (G.getMargin()) { G.img(name, -640, 0, { flip: true }); G.img(name, 640, 0, { flip: true }); }
+}
+const dim = (color, alpha) => { const m = G.getMargin(); G.rect(-m, 0, 640 + 2 * m, 480, color, alpha); };
 let screen = null;
-const go = s => { screen = s; s.enter && s.enter(); };
+const go = s => { screen = s; document.body.classList.toggle('playing', s === Play); s.enter && s.enter(); };
 
 const SCROLLER = ['ברוכים הבאים ל-Icy Tower!', 'עוד משחק מבית Free Lunch Design.',
   'עזרו לסופר מריו לטפס הכי גבוה שאפשר!', 'זזים עם החצים וקופצים עם מקש הרווח.', 'בטלפון: כפתורי החצים והקפיצה בתחתית המסך.', 'בהצלחה!'];
@@ -159,7 +198,7 @@ const Menu = {
     }
   },
   draw(a) {
-    G.img('TITLE_BG', 0, 0);
+    wideBg('TITLE_BG');
     // Mario's face: blinks and looks around (HEROFACE000-002)
     const c = this.t % 260;
     const face = c > 120 && c < 128 ? 'HEROFACE001' : c > 200 && c < 240 ? 'HEROFACE002' : 'HEROFACE000';
@@ -169,12 +208,13 @@ const Menu = {
     this.list.draw(this.t + a, ['התחל משחק', 'הוראות', 'אפשרויות', isFull() ? 'יציאה ממסך מלא' : 'מסך מלא']);
     drawScoreTable();
     // bottom band with the scroller
-    G.rect(0, 450, 640, 6, '#101014');
-    G.rect(0, 456, 640, 24, '#1c104d');
-    if (!this.scrollW) this.scrollW = SCROLLER.reduce((w, s) => w + G.textWidth('FONT2', s) + 60, 0) + 640;
-    const x = 640 - ((this.scroll + 2 * a) % this.scrollW);
+    const m = G.getMargin();
+    G.rect(-m, 450, 640 + 2 * m, 6, '#101014');
+    G.rect(-m, 456, 640 + 2 * m, 24, '#1c104d');
+    if (!this.scrollW) this.scrollW = SCROLLER.reduce((w, s) => w + G.textWidth('FONT2', s) + 60, 0) + 640 + 2 * m;
+    const x = 640 + m - ((this.scroll + 2 * a) % this.scrollW);
     const ctx = G.context();
-    ctx.save(); ctx.beginPath(); ctx.rect(0, 450, 640, 30); ctx.clip();
+    ctx.save(); ctx.beginPath(); ctx.rect(-m, 450, 640 + 2 * m, 30); ctx.clip();
     let xx = x;
     for (const s of SCROLLER) xx += G.text('FONT2', s, xx, 449) + 60;
     ctx.restore();
@@ -196,7 +236,8 @@ const Options = {
       'צלילים: ' + yesNo(cfg.sound),
       'מוזיקה: ' + (S.hasMusic() ? yesNo(cfg.music) : 'אין'),
       'קפיצה חוזרת: ' + yesNo(cfg.rejump),
-      'כפתורי מגע: ' + ({ auto: 'אוטו', on: 'כן', off: 'לא' })[cfg.touch],
+      PHONE ? 'שליטה: ' + (mode === 'touch' ? 'מגע מלא' : 'כפתורים')
+        : 'כפתורי מגע: ' + ({ auto: 'אוטו', on: 'כן', off: 'לא' })[cfg.touch],
       'חזרה',
     ];
   },
@@ -206,7 +247,8 @@ const Options = {
     if (i === 2) cfg.sound = !cfg.sound;
     if (i === 3) { cfg.music = !cfg.music; S.refresh(); }
     if (i === 4) cfg.rejump = !cfg.rejump;
-    if (i === 5) { const o = ['auto', 'on', 'off']; cfg.touch = o[(o.indexOf(cfg.touch) + (dir || 1) + 3) % 3]; resize(); }
+    if (i === 5 && PHONE) setMode(mode === 'touch' ? 'buttons' : 'touch');
+    else if (i === 5) { const o = ['auto', 'on', 'off']; cfg.touch = o[(o.indexOf(cfg.touch) + (dir || 1) + 3) % 3]; resize(); }
     saveCfg();
   },
   update(p, taps) {
@@ -218,7 +260,7 @@ const Options = {
     this.change(i, r.side || 1);
   },
   draw(a) {
-    G.img('TITLE_BG', 0, 0);
+    wideBg('TITLE_BG');
     G.img('REPLAY_BG', 103, 30);
     G.text('FONT1', 'אפשרויות', 320, 50, 'center');
     const L = this.labels();
@@ -237,7 +279,21 @@ const Play = {
     this.game.tick(window.__icyBot ? window.__icyBot(this.game) : I.state());   // __icyBot: demo / video recording
     if (this.game.ended) go(GameOver.from(this.game));
   },
-  draw(a) { this.game.draw(a); },
+  draw(a) {
+    this.game.draw(a);
+    // full-touch mode: how to play, for the first seconds of every game
+    const t = this.game.frame + a;
+    if (mode === 'touch' && t < 260) {
+      const al = Math.min(1, (260 - t) / 40) * 0.9;
+      G.rect(64, 0, 254, 480, '#000', 0.22 * al);
+      G.rect(322, 0, 254, 480, '#fff', 0.06 * al);
+      G.text('FONT1', '<', 150, 200, 'center', { alpha: al, visual: true });
+      G.text('FONT1', '>', 490, 200, 'center', { alpha: al, visual: true });
+      G.text('FONT2', 'החזיקו כאן', 190, 250, 'center', { alpha: al });
+      G.text('FONT2', 'החזיקו כאן', 450, 250, 'center', { alpha: al });
+      G.text('FONT2', 'החלקה למעלה או אצבע שנייה: קפיצה', 320, 330, 'center', { alpha: al });
+    }
+  },
 };
 
 const Pause = {
@@ -251,10 +307,10 @@ const Pause = {
   },
   draw(a) {
     Play.game.draw(0);
-    G.rect(0, 0, 640, 480, '#000', 0.45);
+    dim('#000', 0.45);
     G.img('REPLAY_BG', 103, 25);
     G.text('FONT1', 'המשחק מושהה', 320, 90, 'center');
-    G.text('FONT2', 'ESC ליציאה', 320, 140, 'center');
+    G.text('FONT2', PHONE ? 'הקישו על בחירה' : 'ESC ליציאה', 320, 140, 'center');
     this.list.draw(performance.now() / 50);
   },
 };
@@ -299,7 +355,7 @@ const GameOver = {
   },
   draw(a) {
     this.game.draw(0);
-    G.rect(0, 0, 640, 480, '#000', 0.35);
+    dim('#000', 0.35);
     G.img('REPLAY_BG', 103, 25);
     if (this.entering) {
       const [hw] = G.size('HIGHSCORE');
@@ -324,13 +380,16 @@ nameInput.addEventListener('keydown', e => {
 });
 
 // ------------------------------------------------------------------ fullscreen
-const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 function toggleFullscreen() {
-  const el = document.documentElement;
   if (isFull()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-  else (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el, { navigationUI: 'hide' })?.catch?.(() => {});
+  else enterFull();
 }
-document.addEventListener('fullscreenchange', () => setTimeout(resize, 100));
+const onFull = () => {
+  setTimeout(resize, 100);
+  if (mode === 'touch' && !isFull() && screen === Play) go(Pause);   // left full screen (back button): pause
+};
+document.addEventListener('fullscreenchange', onFull);
+document.addEventListener('webkitfullscreenchange', onFull);
 
 // pause when the tab / app goes to the background
 document.addEventListener('visibilitychange', () => { if (document.hidden && screen === Play) go(Pause); });
@@ -372,6 +431,16 @@ function frame(now) {
   go(Menu);
   S.music(true);
   requestAnimationFrame(frame);
+  if (PHONE) {
+    // phone: buttons or full touch? (this tap also unlocks sound and full screen)
+    const ch = $('#choose');
+    ch.hidden = false;
+    ch.querySelector(`[data-mode="${cfg.phoneMode || 'touch'}"]`).classList.add('last');
+    $('#iosHint').hidden = canFull() || standalone();
+    await new Promise(ok => ch.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
+      ch.hidden = true; setMode(b.dataset.mode); ok();
+    })));
+  }
   const dev = /^(localhost|127\.|192\.168\.)/.test(location.hostname) || location.protocol === 'file:';
   if ('serviceWorker' in navigator && !dev) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

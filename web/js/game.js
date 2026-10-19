@@ -331,9 +331,10 @@ export class Game {
 
     // walls: scroll 1.476x the floor speed (foreground parallax)
     const wallOff = (((Sv % 84) + 84) % 84) * 1.476 - 124;
+    const m = G.getMargin();                         // full-screen phone: the walls continue to the screen edges
     for (let k = 0; k < 5; k++) {
-      G.img('SIDEBLOCK', 565, wallOff + k * 124);
-      G.img('SIDEBLOCK', -57, wallOff + k * 124, { flip: true });
+      for (let x = 565; x < 640 + m; x += 132) G.img('SIDEBLOCK', x, wallOff + k * 124);
+      for (let x = -57; x + 132 > -m; x -= 132) G.img('SIDEBLOCK', x, wallOff + k * 124, { flip: true });
     }
 
     this.drawHud(a);

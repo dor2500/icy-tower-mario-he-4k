@@ -31,6 +31,29 @@
   <button class="ctl jump" data-k="jump" aria-label="קפיצה"><svg viewBox="0 0 24 24"><path d="m5 15 7-7 7 7"/></svg><span>קפיצה</span></button>
 </div>
 
+<!-- full-touch mode: only a small pause button -->
+<button class="ctl tpause" data-k="pause" aria-label="השהיה"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg></button>
+
+<!-- phone: how do you want to play? -->
+<div id="choose" hidden>
+  <div class="title">ICY TOWER</div>
+  <div class="sub">איך רוצים לשחק?</div>
+  <div class="cards">
+    <button data-mode="touch">
+      <svg viewBox="0 0 48 48"><rect x="4" y="12" width="40" height="24" rx="5"/><path d="M24 30v-9m0 0-4 4m4-4 4 4"/></svg>
+      <b>מגע מלא</b>
+      <small>מסך מלא כמו משחק בטלפון. מחזיקים צד שמאל או ימין כדי לרוץ, ומחליקים למעלה כדי לקפוץ</small>
+    </button>
+    <button data-mode="buttons">
+      <svg viewBox="0 0 48 48"><rect x="12" y="4" width="24" height="40" rx="5"/><path d="M17 36h4m6 0h4M18 14h12v9H18z"/></svg>
+      <b>כפתורים</b>
+      <small>המשחק למעלה, וכפתורי חצים וקפיצה מתחתיו</small>
+    </button>
+  </div>
+  <div id="iosHint" class="hint" hidden>באייפון: כדי לשחק במסך מלא אמיתי, לחצו "שיתוף" ואז "הוספה למסך הבית"</div>
+  <div class="hint small">אפשר להחליף בכל רגע במסך האפשרויות</div>
+</div>
+
 <input id="nameInput" maxlength="10" autocomplete="nickname" enterkeyhint="done" hidden aria-label="השם שלך">
 
 <div id="loading">

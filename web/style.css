@@ -49,6 +49,36 @@ body:not(.portrait) .ctl.jump span { font-size: 15px; }
 body:not(.portrait) .ctl.pause { right: max(16px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top));
   width: 48px; height: 40px; border-radius: 12px; opacity: .7; }
 
+/* full-touch mode: the whole screen is the controller, only a small pause button */
+.tpause { display: none; }
+body.gest.playing .tpause { display: flex; right: max(10px, env(safe-area-inset-right)); top: max(10px, env(safe-area-inset-top));
+  width: 46px; height: 40px; border-radius: 12px; opacity: .55; }
+body.gest { overscroll-behavior: none; }
+
+/* phone: choose buttons or full touch */
+#choose { position: fixed; inset: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: linear-gradient(rgba(10,4,8,.72), rgba(10,4,8,.85)), url(assets/hd/TITLE_BG.webp) center / cover #1a0710; }
+#choose[hidden] { display: none; }
+#choose .title { font: 900 clamp(34px, 10vw, 72px)/1 Rubik, sans-serif; letter-spacing: .04em;
+  background: linear-gradient(90deg, #ff2a2a, #ffb000, #fff000, #3cff3c, #19d7ff, #b44cff); -webkit-background-clip: text;
+  background-clip: text; color: transparent; -webkit-text-stroke: 2px #000; filter: drop-shadow(0 4px 0 #000); }
+#choose .sub { font: 900 clamp(20px, 5.5vw, 30px) Rubik, sans-serif; text-shadow: 0 3px 0 #000; }
+#choose .cards { display: flex; gap: 14px; width: min(100%, 720px); }
+body.portrait #choose .cards { flex-direction: column; }
+#choose button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 14px;
+  border: 0; border-radius: 22px; color: #fff; font-family: Rubik, sans-serif; cursor: pointer; outline: 3px solid #0b0610; outline-offset: -3px;
+  background: linear-gradient(rgba(30,20,60,.25), rgba(30,20,60,.55)), url(assets/hd/FLOOR02.webp) center / auto 100% repeat-x, #c8c8e6;
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.5), 0 6px 0 #0b0610, 0 10px 20px rgba(0,0,0,.6); }
+#choose button:active { transform: translateY(4px); box-shadow: 0 2px 0 #0b0610; }
+#choose button.last { box-shadow: inset 0 0 0 4px #ffd400, 0 6px 0 #0b0610, 0 10px 20px rgba(0,0,0,.6); }
+#choose button svg { width: 54px; height: 54px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 0 1.5px #000) drop-shadow(0 2px 0 #000); }
+#choose button b { font-size: 26px; font-weight: 900; text-shadow: -2px 0 #000, 2px 0 #000, 0 -2px #000, 0 2px #000, 0 4px 0 #000; }
+#choose button small { font-size: 15px; font-weight: 700; line-height: 1.35; text-shadow: 0 0 3px #000, 0 1px 2px #000, 0 0 6px #000; }
+#choose .hint { font-weight: 700; text-align: center; text-shadow: 0 2px 0 #000; max-width: 640px; }
+#choose .hint.small { font-size: 13px; opacity: .75; }
+
 /* name entry: a real input (phone keyboard), drawn by the game in its own font */
 #nameInput { position: fixed; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; font-size: 16px; }
 

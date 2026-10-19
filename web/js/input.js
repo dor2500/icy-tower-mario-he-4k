@@ -29,7 +29,8 @@ export function init(canvas, toLogical) {
     }
   });
   addEventListener('keyup', e => { const k = KEYS[e.code]; if (k) held[k] = false; });
-  addEventListener('blur', () => { for (const k in held) held[k] = false; for (const k in touchHeld) touchHeld[k] = false; });
+  addEventListener('blur', () => { for (const k in held) held[k] = false; for (const k in touchHeld) touchHeld[k] = false; ptrs.clear(); updGest(); });
+  initGestures();
 
   // taps on the game picture (menus)
   canvas.addEventListener('pointerdown', e => {
@@ -62,6 +63,41 @@ export function init(canvas, toLogical) {
   });
 }
 
+// ---------------------------------------------------------------- full-touch mode (phone, no buttons)
+// first finger: hold the left / right half of the screen to run (slide across to turn), swipe up = jump;
+// any extra finger = jump (held = jump held), so one thumb runs while the other one jumps.
+const gest = { left: false, right: false, jump: false };
+const ptrs = new Map();
+let gestOn = false, jumpPulse = 0;
+export function setGestures(on) { gestOn = on; ptrs.clear(); updGest(); }
+function updGest() {
+  let l = false, r = false, j = false;
+  for (const p of ptrs.values()) {
+    if (p.role === 'move') { if (p.side < 0) l = true; else r = true; } else j = true;
+  }
+  gest.left = l && !r; gest.right = r && !l; gest.jump = j;
+}
+function initGestures() {
+  const swipe = () => Math.max(22, innerHeight * 0.05);
+  addEventListener('pointerdown', e => {
+    if (!gestOn || e.pointerType === 'mouse' || (e.target.closest && e.target.closest('[data-k], input, button'))) return;
+    const moving = [...ptrs.values()].some(p => p.role === 'move');
+    ptrs.set(e.pointerId, { yRef: e.clientY, side: e.clientX < innerWidth / 2 ? -1 : 1, role: moving ? 'jump' : 'move' });
+    updGest();
+  });
+  addEventListener('pointermove', e => {
+    const p = ptrs.get(e.pointerId);
+    if (!p || p.role !== 'move') return;
+    p.side = e.clientX < innerWidth / 2 ? -1 : 1;
+    if (p.yRef - e.clientY > swipe()) { jumpPulse = 5; p.yRef = e.clientY; }
+    else if (e.clientY > p.yRef) p.yRef = e.clientY;          // measure the next swipe from the lowest point
+    updGest();
+  });
+  const end = e => { if (ptrs.delete(e.pointerId)) updGest(); };
+  addEventListener('pointerup', end);
+  addEventListener('pointercancel', end);
+}
+
 function pollPads() {
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   const now = { left: false, right: false, jump: false, up: false, down: false, start: false, back: false };
@@ -87,10 +123,12 @@ function pollPads() {
 
 export function state() {
   const pad = pollPads();
+  const pulse = jumpPulse > 0;
+  if (jumpPulse > 0) jumpPulse--;
   return {
-    left: held.left || touchHeld.left || pad.left,
-    right: held.right || touchHeld.right || pad.right,
-    jump: held.jump || held.up || touchHeld.jump || pad.jump,
+    left: held.left || touchHeld.left || pad.left || gest.left,
+    right: held.right || touchHeld.right || pad.right || gest.right,
+    jump: held.jump || held.up || touchHeld.jump || pad.jump || gest.jump || pulse,
   };
 }
 

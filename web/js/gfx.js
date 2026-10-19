@@ -9,6 +9,7 @@ const imgs = { '1x': {}, hd: {} };
 let meta = null;
 let ctx = null, canvas = null;
 let scale = 1, offX = 0, offY = 0;      // logical px -> device px
+let margin = 0;                          // logical px visible left/right of the 640 picture (full-screen touch mode)
 let mode = 'hd';                         // 'hd' | 'classic'
 
 export function setAssets(m, images) { meta = m; Object.assign(imgs['1x'], images['1x']); Object.assign(imgs.hd, images.hd); }
@@ -22,7 +23,9 @@ export function attach(c) { canvas = c; ctx = c.getContext('2d', { alpha: false 
 export function layout(rect, dpr) {
   scale = rect.w * dpr / W;
   offX = rect.x * dpr; offY = rect.y * dpr;
+  margin = offX > 0 ? offX / scale : 0;
 }
+export const getMargin = () => margin;
 
 export function begin() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -32,7 +35,7 @@ export function begin() {
   ctx.imageSmoothingEnabled = mode === 'hd';
   ctx.imageSmoothingQuality = 'high';
   ctx.save();
-  ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+  ctx.beginPath(); ctx.rect(-margin, 0, W + 2 * margin, H); ctx.clip();
 }
 export function end() { ctx.restore(); }
 
