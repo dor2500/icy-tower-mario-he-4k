@@ -10,6 +10,7 @@ desktop game. Every bitmap is written twice:
 The original Icy Tower music is not exported: the music is S_BG_MENU of the built sfx13.dat, which
 set_music.py made the Super Mario theme (local builds with -MarioAudio) or silence (public builds).
 """
+import glob
 import io
 import json
 import os
@@ -274,6 +275,12 @@ def export_sounds(app, out, meta):
             open(src, 'wb').write(sfx[n])
             ffmpeg(['-i', src, '-ac', '1', '-ar', '44100', '-b:a', '96k', os.path.join(out, 'sfx', n + '.mp3')])
             meta['sfx'].append(n)
+    # extra Hebrew voice lines of the stage mode (tools/voice/V_*.ogg, made by make_voice.py)
+    vdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'voice')
+    for f in sorted(glob.glob(os.path.join(vdir, 'V_*.ogg'))):
+        n = os.path.splitext(os.path.basename(f))[0]
+        ffmpeg(['-i', f, '-ac', '1', '-ar', '44100', '-b:a', '96k', os.path.join(out, 'sfx', n + '.mp3')])
+        meta['sfx'].append(n)
     # the character's own sounds (smb_*.wav when the user's recordings were imported, else the synth ones)
     d = os.path.join(app, 'characters', 'super_mario')
     txt = open(os.path.join(d, 'super_mario.txt'), encoding='utf-8').read()

@@ -24,10 +24,101 @@ function rewardLevel(f) {
   if (f <= 69) return 5; if (f <= 99) return 6; if (f <= 139) return 7; if (f <= 199) return 8; return 9;
 }
 
+// ------------------------------------------------------------------ stage extras, drawn as vectors in the
+// game's cartoon style (thick dark outline), so they are sharp at any resolution like the HD sprites
+const INK = '#120818';
+
+function drawCoin(ctx, x, y, t) {                    // spinning Mario coin
+  const w = 7.5 * Math.abs(Math.cos(t)) + 1.2, h = 10.5;
+  ctx.save(); ctx.translate(x, y);
+  const g = ctx.createLinearGradient(0, -h, 0, h);
+  g.addColorStop(0, '#fff6a0'); g.addColorStop(0.45, '#ffd21a'); g.addColorStop(1, '#d08a00');
+  ctx.fillStyle = g; ctx.strokeStyle = INK; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(0, 0, w, h, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  if (w > 4) {
+    ctx.strokeStyle = '#b06a00'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.ellipse(0, 0, w * 0.55, h * 0.62, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.beginPath(); ctx.ellipse(-w * 0.35, -h * 0.4, w * 0.18, h * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawSpring(ctx, x, y, t) {                  // red springboard; squashes when used
+  const hgt = t > 6 ? 6 : t > 0 ? 18 : 13;
+  ctx.save(); ctx.translate(x, y);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.strokeStyle = INK; ctx.lineWidth = 5;               // coil: outline then colour
+  const coil = () => { ctx.beginPath(); for (let i = 0; i <= 4; i++) ctx.lineTo(i % 2 ? 6 : -6, -i * hgt / 4); ctx.stroke(); };
+  coil(); ctx.strokeStyle = '#d9d9e8'; ctx.lineWidth = 2.4; coil();
+  ctx.fillStyle = '#e8202a'; ctx.strokeStyle = INK; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(-12, -hgt - 6, 24, 7, 2.5); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.fillRect(-7, -hgt - 4.5, 4, 2); ctx.fillRect(3, -hgt - 4.5, 4, 2);
+  ctx.restore();
+}
+
+function drawFlag(ctx, x, y, down) {                 // Mario's goal flagpole; the flag slides down when reached
+  const H = 168;
+  ctx.save(); ctx.translate(x, y);
+  ctx.strokeStyle = INK; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -H); ctx.stroke();
+  ctx.strokeStyle = '#7fd06a'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(0, -2); ctx.lineTo(0, -H); ctx.stroke();
+  ctx.fillStyle = '#2fb84a'; ctx.strokeStyle = INK; ctx.lineWidth = 2.2;
+  ctx.beginPath(); ctx.arc(0, -H - 6, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  const fy = -H + 10 + down * (H - 50);
+  ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(-2, fy); ctx.lineTo(-44, fy + 16); ctx.lineTo(-2, fy + 32); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#2fb84a'; ctx.beginPath(); ctx.arc(-17, fy + 16, 6.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = INK; ctx.fillRect(-11, -8, 22, 8);   // base block
+  ctx.fillStyle = '#9b5a1e'; ctx.fillRect(-9, -6, 18, 5);
+  ctx.restore();
+}
+
+function drawCracks(ctx, x, top, w, seed) {           // crumbling floors show cracks
+  ctx.save(); ctx.strokeStyle = 'rgba(18,8,24,.75)'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
+  for (let i = 0; i < Math.max(2, w / 40); i++) {
+    const cx = x + ((seed * 37 + i * 53) % Math.max(8, w - 8)) + 4;
+    ctx.beginPath(); ctx.moveTo(cx, top - 4); ctx.lineTo(cx + 3, top + 2); ctx.lineTo(cx - 2, top + 7); ctx.lineTo(cx + 2, top + 12); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawLava(ctx, v, t) {                        // Bowser's castle: glowing lava at the bottom of the screen
+  const base = v.y + v.h - 26;
+  ctx.save();
+  const glow = ctx.createLinearGradient(0, base - 90, 0, base);
+  glow.addColorStop(0, 'rgba(255,80,0,0)'); glow.addColorStop(1, 'rgba(255,80,0,.35)');
+  ctx.fillStyle = glow; ctx.fillRect(v.x, base - 90, v.w, 90);
+  const g = ctx.createLinearGradient(0, base - 8, 0, v.y + v.h);
+  g.addColorStop(0, '#ffe14a'); g.addColorStop(0.3, '#ff7a00'); g.addColorStop(1, '#a00a00');
+  ctx.fillStyle = g; ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(v.x, v.y + v.h);
+  for (let x = v.x; x <= v.x + v.w + 8; x += 8) ctx.lineTo(x, base + Math.sin(x / 23 + t / 9) * 4 + Math.sin(x / 9 - t / 5) * 1.5);
+  ctx.lineTo(v.x + v.w, v.y + v.h); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#ffe873';
+  for (let i = 0; i < 9; i++) {                       // bubbles
+    const ph = ((t / 40 + i * 0.37) % 1);
+    const bx = v.x + ((i * 151) % v.w), by = base + 10 - ph * 16;
+    ctx.globalAlpha = 1 - ph; ctx.beginPath(); ctx.arc(bx, by, 2 + 3 * ph, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
 export class Game {
   constructor(opt = {}) {
     this.opt = opt;
     this.seed = (opt.seed ?? (Date.now() & 0x7fffffff)) >>> 0;
+    // stage mode (stages.js); null = the classic game, exactly as the original
+    this.st = opt.stage || null;
+    this.stageNo = opt.stageNo || 0;
+    this.step = (this.st && this.st.step) || SPEED_STEP;
+    this.seed2 = (this.seed ^ 0x5bd1e995) >>> 0;    // separate random numbers for the stage extras
+    this.crum = new Map();                         // row -> ticks Mario has stood on a crumbling floor
+    this.gone = new Set();                         // crumbled rows
+    this.got = new Set();                          // rows whose coin was taken
+    this.springT = new Map();                      // row -> spring animation
+    this.coins = 0;
+    this.wind = 0;
+    this.cleared = false; this.clearT = 0;
+    this.debris = [];
     this.rows = [];
     this.ahead = opt.ahead || 0;                   // extra view above the 480 px (phone held upright)
     this.R = 0;                                    // rows generated
@@ -50,7 +141,28 @@ export class Game {
     this.ended = false;
     this.prev = { x: 200, y: 430, S: 0 };
     this.snd('C_greeting');
+    if (this.st) this.snd('V_GO', 0.9);            // "בוא נלך!"
   }
+
+  rand2() { this.seed2 = (Math.imul(this.seed2, 1103515245) + 12345) >>> 0; return (this.seed2 >>> 8) & 0xffff; }
+  chance(p) { return p && this.rand2() / 65536 < p; }
+
+  // stage extras for a new normal floor (never floor 0-2, never the full floors)
+  decorate(row, r) {
+    const st = this.st, f = r / 5;
+    if (f === st.goal) { row.type = 0; row.l = 0; row.rt = 40; row.goal = true; return; }
+    if (row.type !== 0 || row.rt - row.l > 30 || f < 3) return;
+    if (this.chance(st.moving)) {
+      const room = Math.min((row.l - 5) * 16, (34 - row.rt) * 16);
+      if (room >= 24) { row.mA = Math.min(room, 40 + (this.rand2() % 40)); row.mW = 0.02 + (this.rand2() % 30) / 1000; row.mP = (this.rand2() % 628) / 100; }
+    }
+    if (this.chance(st.crumble)) row.crumble = true;
+    if (!row.crumble && this.chance(st.springs)) row.spring = (row.l + 1 + this.rand2() % Math.max(1, row.rt - row.l - 1)) * 16 + 8;
+    if (this.chance(st.coins)) row.coin = (row.l + this.rand2() % (row.rt - row.l + 1)) * 16 + 8;
+  }
+
+  // sideways offset of a moving floor at a (fractional) tick
+  shift(row, t = this.frame) { return row && row.mA ? row.mA * Math.sin(t * row.mW + row.mP) : 0; }
 
   snd(name, vol) { if (!this.silent) S.play(name, vol); }
 
@@ -62,6 +174,8 @@ export class Game {
     g.rows = this.rows.slice();                    // rows are never mutated once made
     g.stars = this.stars.map(s => ({ ...s }));     // stars use rand() too: keep the sequence identical
     g.reward = this.reward && { ...this.reward }; g.silent = true;
+    g.crum = new Map(this.crum); g.gone = new Set(this.gone); g.got = new Set(this.got);
+    g.springT = new Map(this.springT); g.debris = [];
     return g;
   }
 
@@ -85,6 +199,7 @@ export class Game {
       row.type = 0; row.l = this.rand() % (30 - w) + 5; row.rt = row.l + w;
     }
     if (r % 50 === 0) row.sign = ((r + 1) / 5) | 0;
+    if (this.st && r % 5 === 0) this.decorate(row, r);
     this.rows[r] = row;
     const keep = 72 + Math.ceil(this.ahead / 16);
     if (r > keep) this.rows[r - keep] = undefined; // keep memory flat on long games
@@ -103,9 +218,10 @@ export class Game {
   support(px, py) {
     const m = (py + 1) >> 4;
     if (29 - m < 0 || 29 - m > 31) return 0;
-    const row = this.rows[this.base() - m];
-    if (!row || row.type !== 0) return 0;
-    const col = Math.floor(px / 16);
+    const r = this.base() - m;
+    const row = this.rows[r];
+    if (!row || row.type !== 0 || this.gone.has(r)) return 0;
+    const col = Math.floor((row.mA ? px - this.shift(row) : px) / 16);
     if (row.l > col || row.rt < col) return 0;
     return py - 16 * m - (this.S & 15) + 10000;
   }
@@ -127,9 +243,14 @@ export class Game {
   }
 
   input(p, inp) {
-    if (inp.left) { if (p.vx > 0) p.vx *= 0.7; p.vx -= 0.3; }
+    if (this.st && this.st.slippery && p.state === 0) {   // stage "ice": slow to speed up, slow to stop
+      if (inp.left) { if (p.vx > 0) p.vx *= 0.93; p.vx -= 0.2; }
+      else if (inp.right) { if (p.vx < 0) p.vx *= 0.93; p.vx += 0.2; }
+      else p.vx *= 0.985;
+    } else if (inp.left) { if (p.vx > 0) p.vx *= 0.7; p.vx -= 0.3; }
     else if (inp.right) { if (p.vx < 0) p.vx *= 0.7; p.vx += 0.3; }
     else p.vx *= 0.9;
+    if (this.wind && !p.dead) p.vx += this.wind;          // stage "wind"
     if (inp.jump) {
       if (this.opt.rejump) this.jump(p);
       else if (!p.latch) { p.latch = true; this.jump(p); }
@@ -184,6 +305,15 @@ export class Game {
   tick(inp) {
     const p = this.p;
     this.prev.x = p.x; this.prev.y = p.y; this.prev.S = this.S;
+    if (this.cleared) {                                   // stage done: the world stops, Mario celebrates
+      this.clearT++;
+      for (const s of this.stars) { s.x += s.vx; s.y += s.vy; s.life--; s.vy += 0.3; }
+      this.stars = this.stars.filter(s => s.life > 0 && s.y < 520);
+      if (this.clearT % 12 === 1 && this.clearT < 90) for (let i = 0; i < 10; i++)
+        this.addStar(p.x, p.y - 30, ((this.rand2() % 1000) - 500) / 80, -((this.rand2() % 500) + 300) / 60);
+      if (this.clearT > 170) this.ended = true;
+      return;
+    }
     this.frame++;
     this.timer++;
     if (!p.dead) this.input(p, inp); else this.input(p, {});
@@ -204,19 +334,21 @@ export class Game {
     }
     this.S += n; p.y += n;
     if (this.S > 100 && !p.dead) {
-      if (this.L === -1) this.L = 0;
+      if (this.L === -1) this.L = (this.st && this.st.fastStart) || 0;
       const k = this.L === 0 ? (this.frame & 1) : this.L;
       this.S += k; p.y += k;
     } else if (!p.dead) this.timer = 0;
     if (this.hurryY + 99 <= 578 && this.hurryY >= -99 - this.ahead) this.hurryY -= 2;
-    if (!p.dead && this.L >= 0 && this.L < 5 && this.timer > SPEED_STEP * (this.idx + 1)) {
+    if (!p.dead && this.L >= 0 && this.L < 5 && this.timer > this.step * (this.idx + 1)) {
       this.L++; this.idx++;
       this.hurryY = 479;
       this.snd('S_RING'); this.snd('S_HURRYUP');
     }
     this.fillRows();
 
+    const wasAir = p.state !== 0;
     if (!p.dead) this.collide(p);
+    if (this.st && !p.dead) this.stageTick(p, wasAir);
     if (p.cart) p.ang += 8;
     if (p.cTimer) {
       p.cTimer--;
@@ -262,6 +394,60 @@ export class Game {
     }
   }
 
+  // stage extras, every tick after the collision
+  stageTick(p, wasAir) {
+    const st = this.st;
+    const r = this.rowIndexAt(Math.trunc(p.y)), row = this.rows[r];
+    if (p.state === 0 && row && row.type === 0) {
+      // moving floor: Mario rides along
+      if (row.mA) p.x = Math.max(85, Math.min(555, p.x + this.shift(row) - this.shift(row, this.frame - 1)));
+      // spring: landing on it throws Mario up (cartwheel)
+      if (wasAir && row.spring && Math.abs(p.x - (row.spring + this.shift(row))) < 15) {
+        p.state = 1; p.vy = -26; p.cart = true; p.ang = 0;
+        this.springT.set(r, 12);
+        this.snd('C_jumphi');
+      }
+      // crumbling floor: 45 ticks (0.9 s) under Mario's feet, then it falls
+      if (row.crumble) {
+        const t = (this.crum.get(r) || 0) + 1;
+        this.crum.set(r, t);
+        if (t >= 45) {
+          this.gone.add(r);
+          const top = TOP + this.S - 16 * r;
+          for (let c = row.l; c <= row.rt; c++) this.debris.push({ x: c * 16 + this.shift(row), y: top - 6, vx: (this.rand2() % 200 - 100) / 60, vy: -(this.rand2() % 100) / 50, a: 0, va: (this.rand2() % 100 - 50) / 300, S0: this.S });
+          this.snd('S_SPLAT', 0.5);
+        }
+      }
+    }
+    for (const [k, v] of this.springT) { if (v <= 1) this.springT.delete(k); else this.springT.set(k, v - 1); }
+    for (const d of this.debris) { d.x += d.vx; d.y += d.vy; d.vy += 0.5; d.a += d.va; }
+    this.debris = this.debris.filter(d => d.y + this.S - d.S0 < 560);
+    // coins: just above the floors
+    const yi = Math.trunc(p.y);
+    for (let rr = this.rowIndexAt(yi) - 6; rr <= this.rowIndexAt(yi) + 2; rr++) {
+      const cr = this.rows[rr];
+      if (!cr || cr.coin === undefined || this.got.has(rr) || this.gone.has(rr)) continue;
+      const cx = cr.coin + this.shift(cr), cy = TOP + this.S - 16 * rr - 22;
+      if (Math.abs(p.x - cx) < 18 && Math.abs(p.y - 24 - cy) < 30) {
+        this.got.add(rr); this.coins++; p.bonus += 25;
+        this.snd('C_edge');
+        for (let i = 0; i < 6; i++) this.addStar(cx, cy, ((this.rand2() % 100) - 50) / 20, -((this.rand2() % 100) + 50) / 40);
+      }
+    }
+    // wind: a gust every 5 seconds, changing direction
+    if (st.wind && this.L >= 0) {
+      const ph = Math.floor(this.timer / 250);
+      if (ph !== this.windPh) { this.windPh = ph; this.windDir = this.rand2() % 2 ? 1 : -1; }
+      const t = this.timer % 250;
+      this.wind = t < 40 ? 0 : this.windDir * 0.16 * Math.min(1, (t - 40) / 30);
+    }
+    // the flag
+    if (p.floor >= st.goal && p.state === 0) {
+      this.cleared = true; this.clearT = 0;
+      this.snd('V_CLEAR'); this.snd('S_CHEER', 0.8);
+    }
+  }
+
   get score() { return this.p.floor * 10 + this.p.bonus; }
 
   // ------------------------------------------------------------------ drawing
@@ -303,23 +489,38 @@ export class Game {
 
     // floors
     const rFirst = Math.max(0, Math.floor((Sv + TOP - 520) / 16)), rLast = Math.ceil((Sv + TOP + 60 + up) / 16);
+    const ctx = G.context();
+    const tf = this.frame - 1 + a;                    // fractional tick, for smooth moving floors
     for (let r = rFirst; r <= rLast; r++) {
       const row = this.rows[r];
-      if (!row || row.type !== 0) continue;
+      if (!row || row.type !== 0 || this.gone.has(r)) continue;
       const top = TOP + Sv - 16 * r;
-      const set = row.n >= 5000 ? 10 : Math.min(row.theme, 9);
+      const set = this.st ? this.st.set : row.n >= 5000 ? 10 : Math.min(row.theme, 9);
       const [L, M, Rt] = FLOOR_SETS[set];
+      let ox = this.shift(row, tf);
+      const ct = this.crum.get(r) || 0;
+      if (ct > 12) ox += ((this.frame * 7) % 5 - 2) * (ct / 45);   // about to fall: shakes
       const y = top - 6;
-      G.img(L, row.l * 16 - 5, y);
-      for (let c = row.l + 1; c < row.rt; c++) G.img(M, c * 16, y);
-      G.img(Rt, row.rt * 16, y);
+      if (row.crumble) ctx.globalAlpha = 1 - Math.max(0, ct - 25) / 40;
+      G.img(L, row.l * 16 - 5 + ox, y);
+      for (let c = row.l + 1; c < row.rt; c++) G.img(M, c * 16 + ox, y);
+      G.img(Rt, row.rt * 16 + ox, y);
+      ctx.globalAlpha = 1;
+      if (row.crumble) drawCracks(ctx, row.l * 16 + ox, top, (row.rt - row.l + 1) * 16, r);
       if (row.sign) {
-        const sn = SIGNS[row.n >= 5000 ? 10 : Math.min(row.theme, 9)];
+        const sn = SIGNS[set];
         const [sw] = G.size(sn);
-        const sx = (row.l + ((row.rt - row.l) >> 1)) * 16;
+        const sx = (row.l + ((row.rt - row.l) >> 1)) * 16 + ox;
         G.img(sn, sx, top + 10);
         G.smallText(String(row.sign), sx + (sw >> 1) + 1, top + 16, 'center');
       }
+      if (row.spring) drawSpring(ctx, row.spring + ox, top - 1, this.springT.get(r) || 0);
+      if (row.coin !== undefined && !this.got.has(r)) drawCoin(ctx, row.coin + ox, top - 22, tf * 0.12 + r);
+      if (row.goal) drawFlag(ctx, 470, top, this.cleared ? Math.min(1, this.clearT / 60) : 0);
+    }
+    if (this.debris.length) {                        // pieces of a crumbled floor
+      const M = FLOOR_SETS[this.st.set][1];
+      for (const d of this.debris) G.img(M, d.x, d.y + Sv - d.S0, { rot: d.a, cx: d.x + 8, cy: d.y + 8 + Sv - d.S0 });
     }
 
     // stars
@@ -339,6 +540,29 @@ export class Game {
       }
     }
 
+    const v = G.view();
+    // stage "wind": white streaks blowing across the tower
+    if (this.wind) {
+      const k = Math.abs(this.wind) / 0.16;
+      ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineCap = 'round';
+      for (let i = 0; i < 22; i++) {
+        const len = 22 + (i * 13) % 30;
+        const x = 60 + (((i * 197 + tf * Math.sign(this.wind) * (9 + i % 5)) % 560) + 560) % 560 - 20;
+        const yy = v.y + ((i * 89.3) % v.h);
+        ctx.globalAlpha = 0.18 + 0.25 * k * ((i % 3) / 2);
+        ctx.lineWidth = 1.5 + (i % 2);
+        ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x - Math.sign(this.wind) * len, yy); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // stage "dark": only a circle of light around Mario
+    if (this.st && this.st.dark) {
+      const cx = px + 4, cy = py - 26;
+      const g = ctx.createRadialGradient(cx, cy, 55, cx, cy, 190);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.55, 'rgba(0,0,10,0.75)'); g.addColorStop(1, 'rgba(0,0,10,0.96)');
+      ctx.fillStyle = g; ctx.fillRect(v.x, v.y, v.w, v.h);
+    }
+
     // walls: scroll 1.476x the floor speed (foreground parallax)
     const wallOff = (((Sv % 84) + 84) % 84) * 1.476 - 124;
     const m = G.getMargin();                         // full-screen phone: the walls continue to the screen edges
@@ -346,8 +570,37 @@ export class Game {
       for (let x = 565; x < 640 + m; x += 132) G.img('SIDEBLOCK', x, wallOff + k * 124);
       for (let x = -57; x + 132 > -m; x -= 132) G.img('SIDEBLOCK', x, wallOff + k * 124, { flip: true });
     }
+    if (this.st && this.st.lava) drawLava(ctx, v, tf);
 
     this.drawHud(a);
+    if (this.st) this.drawStageHud(a);
+  }
+
+  drawStageHud(a) {
+    const st = this.st, p = this.p, ctx = G.context();
+    const T = -this.ahead, mid = (480 - this.ahead) / 2;
+    G.smallText(`שלב ${this.stageNo + 1}: ${st.name}`, 320, T + 6, 'center');
+    G.smallText(`קומה ${Math.min(p.floor, st.goal)} מתוך ${st.goal}`, 320, T + 22, 'center');
+    if (st.coins) { drawCoin(ctx, 300, T + 52, 0); G.text('FONT2', 'x' + this.coins, 314, T + 38, 'left', { visual: true }); }
+    // intro card
+    const t = this.frame + a;
+    if (t < 150 && !this.cleared) {
+      const al = Math.min(1, (150 - t) / 30);
+      const v = G.view();
+      G.rect(v.x, mid - 100, v.w, 128, '#000', 0.5 * al);
+      G.text('FONT1', `שלב ${this.stageNo + 1}`, 320, mid - 90, 'center', { alpha: al });
+      G.text('FONT1', st.name, 320, mid - 55, 'center', { alpha: al });
+      G.text('FONT2', st.desc, 320, mid - 8, 'center', { alpha: al });
+    }
+    if (this.cleared) {
+      const v = G.view();
+      G.rect(v.x, mid - 92, v.w, st.coins ? 112 : 78, '#000', 0.45);
+      const sc = 1 + 0.06 * Math.sin((this.clearT + a) / 4);
+      ctx.save(); ctx.translate(320, mid - 60); ctx.scale(sc, sc);
+      G.text('FONT1', 'שלב הושלם!', 0, -20, 'center');
+      ctx.restore();
+      if (st.coins) G.text('FONT2', `מטבעות: ${this.coins}`, 320, mid - 10, 'center');
+    }
   }
 
   drawHud(a) {
@@ -377,7 +630,7 @@ export class Game {
     G.text('FONT1', 'ניקוד: ' + this.score, 8, 440);
 
     // reward
-    if (this.reward) {
+    if (this.reward && !this.cleared) {
       const name = 'REWARD00' + this.reward.lvl;
       const [w, h] = G.size(name);
       const tt = this.reward.t + a;

@@ -21,7 +21,8 @@ def main(dat, vdir):
             o['data'] = new[n]
             o['props'] = [(t, v) for t, v in o['props'] if t != b'ORIG']
             done.append(n)
-    missing = sorted(set(new) - set(done))
+    # V_* lines are extras for the HTML version only (build_web.py exports them from the voice dir)
+    missing = sorted(n for n in set(new) - set(done) if not n.startswith('V_'))
     assert not missing, missing
     alleg.save(dat, objs)
     print('voice: %d Hebrew lines -> %s' % (len(done), dat))

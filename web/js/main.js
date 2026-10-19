@@ -3,6 +3,7 @@ import * as G from './gfx.js';
 import * as S from './sound.js';
 import * as I from './input.js';
 import { Game } from './game.js';
+import { STAGES, progress, markDone } from './stages.js';
 
 const TICK = 20;                                       // 50 logic ticks per second, like the original
 const $ = s => document.querySelector(s);
@@ -203,7 +204,7 @@ function drawScoreTable() {
 
 const Menu = {
   t: 0, scroll: 0,
-  enter() { this.list = menuList(['התחל משחק', 'הוראות', 'אפשרויות', 'מסך מלא'], 40, 270, 28); this.list.sel = this.sel || 0; },
+  enter() { this.list = menuList(['התחל משחק', 'שלבים', 'הוראות', 'אפשרויות', 'מסך מלא'], 40, 270, 28); this.list.sel = this.sel || 0; },
   update(p, taps) {
     this.t++;
     this.scroll += 2;
@@ -211,9 +212,10 @@ const Menu = {
     this.sel = this.list.sel;
     if (r && r.pick !== undefined) {
       if (r.pick === 0) go(Play.start());
-      if (r.pick === 1) go(Instructions);
-      if (r.pick === 2) go(Options);
-      if (r.pick === 3) toggleFullscreen();
+      if (r.pick === 1) go(Stages);
+      if (r.pick === 2) go(Instructions);
+      if (r.pick === 3) go(Options);
+      if (r.pick === 4) toggleFullscreen();
     }
   },
   draw(a) {
@@ -224,7 +226,7 @@ const Menu = {
     G.img(face, face === 'HEROFACE000' ? 40 : 39, 19);
     G.img('TITLE', 250, 20);
     G.smallText('v1.3.1', 634, 6, 'right');
-    this.list.draw(this.t + a, ['התחל משחק', 'הוראות', 'אפשרויות', isFull() ? 'יציאה ממסך מלא' : 'מסך מלא']);
+    this.list.draw(this.t + a, ['התחל משחק', 'שלבים', 'הוראות', 'אפשרויות', isFull() ? 'יציאה ממסך מלא' : 'מסך מלא']);
     drawScoreTable();
     // bottom band with the scroller
     const m = G.getMargin(), v = G.view();
@@ -244,6 +246,49 @@ const Menu = {
 const Instructions = {
   update(p, taps) { if (p.has('any') || p.has('back') || taps.length) { S.play('S_MENU_CHOOSE'); go(Menu); } },
   draw() { if (G.getMargin() || G.view().h > 481) wideBg('TITLE_BG'); G.img('INSTRUCTIONS', 0, 0); },
+};
+
+// stage select: 10 stages, each opens when the one before is done (progress in localStorage)
+const Stages = {
+  Y0: 90, STEP: 33,
+  enter() { const pr = progress(); this.pr = pr; this.sel = Math.min(this.sel ?? pr.open - 1, STAGES.length); this.t = 0; },
+  pick(i) {
+    if (i === STAGES.length) { S.play('S_MENU_CHOOSE'); go(Menu); return; }
+    if (i < this.pr.open) { S.play('S_MENU_CHOOSE'); go(Play.start(undefined, i)); }
+    else S.play('S_MENU_CHANGE');                     // locked
+  },
+  update(p, taps) {
+    this.t++;
+    const n = STAGES.length + 1;
+    if (p.has('up')) { this.sel = (this.sel + n - 1) % n; S.play('S_MENU_CHANGE'); }
+    if (p.has('down')) { this.sel = (this.sel + 1) % n; S.play('S_MENU_CHANGE'); }
+    if (p.has('back')) { go(Menu); return; }
+    for (const t of taps) {
+      const i = Math.floor((t.y - this.Y0 + 4) / this.STEP);
+      if (i >= 0 && i < n && t.x > 110 && t.x < 530) { this.sel = i; this.pick(i); return; }
+    }
+    if (p.has('ok')) this.pick(this.sel);
+  },
+  draw(a) {
+    wideBg('TITLE_BG');
+    G.img('REPLAY_BG', 103, 25);
+    G.text('FONT1', 'שלבים', 320, 30, 'center');
+    G.smallText(`הושלמו ${this.pr.done.length} מתוך ${STAGES.length}`, 320, 66, 'center');
+    const ctx = G.context();
+    STAGES.forEach((st, i) => {
+      const y = this.Y0 + i * this.STEP;
+      const open = i < this.pr.open, done = this.pr.done.includes(i);
+      ctx.globalAlpha = open ? 1 : 0.38;
+      G.text('FONT2', `${i + 1}. ${st.name}`, 492, y, 'right');
+      G.smallText(open ? `קומה ${st.goal}` : 'נעול', 196, y + 5, 'right');
+      if (done) G.img('STAR0' + (1 + ((this.t >> 3) + i) % 8), 128, y + 7);
+      if (done && st.coins && this.pr.coins[i]) G.smallText(`${this.pr.coins[i]} מטבעות`, 270, y + 5, 'right');
+      ctx.globalAlpha = 1;
+    });
+    G.text('FONT2', 'חזרה', 492, this.Y0 + STAGES.length * this.STEP, 'right');
+    const by = this.Y0 + this.sel * this.STEP - 6 + Math.sin(this.t / 6) * 1.5;
+    G.img('MENU_BULLET', 498, by, { flip: true, scale: 0.62, cx: 516, cy: by + 26 });
+  },
 };
 
 const yesNo = v => v ? 'כן' : 'לא';
@@ -292,7 +337,13 @@ const Options = {
 
 const Play = {
   game: null,
-  start(seed) { this.game = new Game({ rejump: cfg.rejump, seed, ahead: aheadPx() }); return this; },
+  stage: -1,                                         // -1 = classic game, else index into STAGES
+  start(seed, stage = -1) {
+    this.stage = stage;
+    this.game = new Game({ rejump: cfg.rejump, seed, ahead: aheadPx(), stage: STAGES[stage], stageNo: stage });
+    return this;
+  },
+  again() { return this.start(undefined, this.stage); },
   enter() { S.music(true); },
   update(p) {
     if (p.has('pause') || p.has('back')) { go(Pause); return; }
@@ -302,9 +353,9 @@ const Play = {
   draw(a) {
     this.game.draw(a);
     // full-touch mode: how to play, for the first seconds of every game
-    const t = this.game.frame + a;
-    if (mode === 'touch' && t < 260) {
-      const al = Math.min(1, (260 - t) / 40) * 0.9;
+    const t = this.game.frame + a - (this.stage >= 0 ? 150 : 0);   // stages: after the stage intro card
+    if (mode === 'touch' && t > 0 && t < 260) {
+      const al = Math.min(1, (260 - t) / 40, t / 20) * 0.9;
       const v = G.view(), my = v.y + v.h / 2;
       G.rect(v.x, v.y, 320 - v.x - 2, v.h, '#000', 0.22 * al);
       G.rect(322, v.y, v.x + v.w - 322, v.h, '#fff', 0.06 * al);
@@ -318,13 +369,13 @@ const Play = {
 };
 
 const Pause = {
-  enter() { this.dy = Math.round(-aheadPx() / 2); this.list = menuList(['המשך', 'התחל מחדש', 'תפריט ראשי'], 215, 210 + this.dy, 40); S.play('C_pause'); },
+  enter() { this.dy = Math.round(-aheadPx() / 2); this.list = menuList(['המשך', 'התחל מחדש', Play.stage >= 0 ? 'שלבים' : 'תפריט ראשי'], 215, 210 + this.dy, 40); S.play('C_pause'); },
   update(p, taps) {
     if (p.has('pause') || p.has('back')) { go(Play); return; }
     const r = this.list.handle(p, taps);
     if (r && r.pick === 0) go(Play);
-    if (r && r.pick === 1) go(Play.start());
-    if (r && r.pick === 2) go(Menu);
+    if (r && r.pick === 1) go(Play.again());
+    if (r && r.pick === 2) go(Play.stage >= 0 ? Stages : Menu);
   },
   draw(a) {
     Play.game.draw(0);
@@ -343,14 +394,28 @@ const nameInput = $('#nameInput');
 const GameOver = {
   from(game) {
     this.game = game; this.score = game.score; this.floor = game.p.floor; this.combo = game.p.best;
-    this.entering = qualifies(this.score);
+    this.stage = Play.stage;                          // stage mode: no highscore entry
+    this.cleared = game.cleared;
+    this.allDone = false;
+    if (this.stage >= 0 && this.cleared) {
+      markDone(this.stage, game.coins);
+      this.allDone = this.stage === STAGES.length - 1 || progress().done.length === STAGES.length;
+    }
+    this.entering = this.stage < 0 && qualifies(this.score);
     this.name = cfg.name || '';
     this.t = 0;
     return this;
   },
+  items() {
+    if (this.stage < 0) return ['שחק שוב', 'תפריט ראשי'];
+    if (this.cleared && this.stage < STAGES.length - 1) return ['השלב הבא', 'שלבים', 'תפריט ראשי'];
+    return [this.cleared ? 'שחק שוב' : 'נסה שוב', 'שלבים', 'תפריט ראשי'];
+  },
   enter() {
     this.dy = Math.round(-aheadPx() / 2);
-    this.list = menuList(['שחק שוב', 'תפריט ראשי'], 230, 330 + this.dy, 42);
+    const it = this.items();
+    this.list = menuList(it, 230, (it.length > 2 ? 300 : 330) + this.dy, 42);
+    if (this.allDone) setTimeout(() => S.play('V_ALL'), 400);   // "מאמא מיה! סיימת את כל השלבים!"
     if (this.entering) {
       nameInput.value = this.name;
       nameInput.hidden = false;
@@ -375,8 +440,11 @@ const GameOver = {
       return;
     }
     const r = this.list.handle(p, taps);
-    if (r && r.pick === 0) go(Play.start());
-    if (r && r.pick === 1) go(Menu);
+    if (!r || r.pick === undefined) return;
+    if (this.stage < 0) { go(r.pick === 0 ? Play.start() : Menu); return; }
+    if (r.pick === 0) go(this.cleared && this.stage < STAGES.length - 1 ? Play.start(undefined, this.stage + 1) : Play.again());
+    if (r.pick === 1) go(Stages);
+    if (r.pick === 2) go(Menu);
   },
   draw(a) {
     this.game.draw(0);
@@ -393,6 +461,17 @@ const GameOver = {
       G.text('FONT2', 'ניקוד: ' + this.score, 320, 290, 'center');
       G.smallText('Enter / הקשה לשמירה', 320, 340, 'center');
       ctx.restore();
+      return;
+    }
+    if (this.stage >= 0) {
+      const st = STAGES[this.stage];
+      G.text('FONT1', this.allDone && this.cleared ? 'סיימת הכל!' : this.cleared ? 'שלב הושלם!' : 'אוי, נפלת!', 320, 50, 'center');
+      G.text('FONT2', `שלב ${this.stage + 1}: ${st.name}`, 320, 115, 'center');
+      G.text('FONT2', `קומה: ${Math.min(this.floor, st.goal)} מתוך ${st.goal}`, 320, 150, 'center');
+      G.text('FONT2', st.coins ? `מטבעות: ${this.game.coins}   ניקוד: ${this.score}` : `ניקוד: ${this.score}`, 320, 185, 'center');
+      if (this.allDone && this.cleared) G.text('FONT2', 'מאמא מיה! כל 10 השלבים!', 320, 225, 'center');
+      ctx.restore();
+      this.list.draw(this.t + a);
       return;
     }
     G.text('FONT1', 'המשחק נגמר', 320, 60, 'center');
@@ -476,7 +555,7 @@ function frame(now) {
 
 // debug / screenshot hooks (used by tools/webshot.py)
 window.__icy = {
-  go, Menu, Play, Options, Instructions, GameOver, Pause, cfg, get screen() { return screen; },
+  go, Menu, Play, Options, Instructions, GameOver, Pause, Stages, cfg, get screen() { return screen; },
   // advance n logic ticks, draw, return the picture (used with window.__icyManual = true)
   step(n = 1, type = 'image/jpeg', q = 0.93) {
     for (let i = 0; i < n; i++) screen.update(I.take(), I.taps());

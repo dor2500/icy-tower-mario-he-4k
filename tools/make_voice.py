@@ -31,6 +31,10 @@ LINES = {
     'S_GAMEOVER': 'מאמא מיה! המשחק נגמר!',
     'S_TRYAGAIN': 'נסה שוב!',
     'S_AIGHT': 'יאללה!',
+    # extra lines for the stage mode of the HTML version (not in sfx13.dat; build_web.py copies them)
+    'V_GO': 'בוא נלך!',
+    'V_CLEAR': 'יאהו! שלב הושלם!',
+    'V_ALL': 'מאמא מיה! סיימת את כל השלבים!',
 }
 SEMITONES = 4.0
 
