@@ -83,6 +83,93 @@ def graffiti(text, W, H, pad=10, fill=(224, 231), ring=5):
     return px
 
 
+# ------------------------------------------------- the title logo "אייסי טאוור"
+_REF = {}
+
+
+def letter_mask(ch, size):
+    """One letter, cropped left/right only (rows = the font's letter band, so yod / lamed / final letters keep their place)."""
+    f = ImageFont.truetype(RUBIK, size, layout_engine=ImageFont.Layout.BASIC)
+    f.set_variation_by_axes([900])
+    if size not in _REF:
+        im = Image.new('L', (size * 30, size * 3), 0)
+        ImageDraw.Draw(im).text((size, size), 'אבגדהוזחטיכלמנסעפצקרשתךםןףץ', font=f, fill=255)
+        ys = np.nonzero(np.array(im).max(1) >= 128)[0]
+        _REF[size] = (ys.min(), ys.max() + 1)
+    t, b = _REF[size]
+    im = Image.new('L', (size * 3, size * 3), 0)
+    ImageDraw.Draw(im).text((size, size), ch, font=f, fill=255)
+    a = np.array(im)[t:b] >= 128
+    xs = np.nonzero(a.any(0))[0]
+    return a[:, xs.min():xs.max() + 1]
+
+
+def graffiti_word(text, size, seed, tilt):
+    """Letters each turned a little and bounced up / down, overlapping like a graffiti tag; the word tilted."""
+    rng = np.random.default_rng(seed)
+    parts = []
+    for ch in bidi.visual(text):
+        a = letter_mask(ch, size)
+        im = Image.fromarray((a * 255).astype(np.uint8)).rotate(rng.uniform(-10, 10), expand=True, resample=Image.BICUBIC)
+        parts.append((np.array(im) >= 128, int(rng.uniform(-0.09, 0.09) * size)))
+    H = max(m.shape[0] for m, _ in parts) + size // 2
+    W = sum(m.shape[1] for m, _ in parts) + size
+    c = np.zeros((H, W), bool)
+    x = size // 2
+    for m, dy in parts:
+        y = (H - m.shape[0]) // 2 + dy
+        c[y:y + m.shape[0], x:x + m.shape[1]] |= m
+        x += m.shape[1] + int(size * 0.07)
+    im = Image.fromarray((c * 255).astype(np.uint8)).rotate(tilt, expand=True, resample=Image.BICUBIC)
+    a = np.array(im) >= 128
+    ys, xs = np.nonzero(a)
+    return a[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+
+
+def title_logo(W, H, ring=7):
+    """TITLE: "אייסי" above, a bigger "טאוור" below, in the original logo's style: rainbow rays (palette 224-239),
+    black outline, grey bevelled metal rim (1-11), black edge; 0 = transparent."""
+    pad = ring + 7
+    top, bot = graffiti_word('אייסי', 120, 7, 7), graffiti_word('טאוור', 150, 11, 7)
+    # scale both words so the two lines fill the box (the second line a bit bigger)
+    for k in np.arange(1.0, 0.2, -0.01):
+        t = np.array(Image.fromarray(top.astype(np.uint8) * 255).resize((int(top.shape[1] * k * 0.95), int(top.shape[0] * k * 0.95)), Image.LANCZOS)) >= 128
+        b = np.array(Image.fromarray(bot.astype(np.uint8) * 255).resize((int(bot.shape[1] * k), int(bot.shape[0] * k)), Image.LANCZOS)) >= 128
+        ov = int(b.shape[0] * 0.12)                       # the lines overlap a little, like the original
+        if max(t.shape[1], b.shape[1]) <= W - 2 * pad and t.shape[0] + b.shape[0] - ov <= H - 2 * pad:
+            break
+    core = np.zeros((H, W), bool)
+    ty = (H - (t.shape[0] + b.shape[0] - ov)) // 2
+    tx = W - pad - t.shape[1] - (W - 2 * pad - t.shape[1]) // 5   # first word towards the right (Hebrew reads from the right)
+    by = ty + t.shape[0] - ov
+    bx = pad + (W - 2 * pad - b.shape[1]) // 2
+    core[ty:ty + t.shape[0], tx:tx + t.shape[1]] |= t
+    core[by:by + b.shape[0], bx:bx + b.shape[1]] |= b
+    core = dil(core, 1)                               # chunky letters, like the original logo
+    px = np.zeros((H, W), np.uint8)
+    yy, xx = np.mgrid[0:H, 0:W]
+    edge, rim, o1 = dil(core, 3 + ring), dil(core, 2 + ring), dil(core, 2)
+    px[edge] = 1
+    # rim: light top-left -> dark bottom-right (bevel), per line
+    lit = ((xx * 0.25 + (yy - ty) * 1.0) / (H * 0.9) * 9).astype(int)
+    shade = (11 - lit).clip(2, 11).astype(np.uint8)
+    px[rim] = shade[rim]
+    px[o1] = 1
+    # fill: rainbow rays around a point under each word (like the bursts in the original logo)
+    fill = np.zeros((H, W), np.uint8)
+    for (cx, cy, rot, rng_) in [(tx + t.shape[1] * 0.45, ty + t.shape[0] * 1.1, 0.0, (224, 239)),
+                                (bx + b.shape[1] * 0.55, by + b.shape[0] * 1.25, 1.3, (229, 239))]:
+        ang = (np.arctan2(yy - cy, xx - cx) + rot) % (2 * np.pi)
+        lo, hi = rng_
+        n = hi - lo + 1
+        idx = (lo + (ang / (2 * np.pi) * n * 2).astype(int) % n).astype(np.uint8)
+        sel = (yy < by + ov // 2) if rng_[0] == 224 else (yy >= by + ov // 2)
+        fill[sel] = idx[sel]
+    px[core] = fill[core]
+    # thin black lines inside the letters where the two words meet stay visible thanks to o1
+    return px
+
+
 def small_rainbow(text, max_w, max_h):
     """Small rainbow word with a 1px black outline (FLOORS label on the star)."""
     m = fit_mask(text, max_w - 2, max_h - 2, start=40)
@@ -202,6 +289,8 @@ def build(src, outdir):
         h, w = bm[name].shape
         ring = max(2, min(6, h // 16))
         save(name, graffiti(t, w, h, pad=3 + ring, ring=ring))
+    # the title logo "Icy Tower" -> "אייסי טאוור"
+    save('TITLE', title_logo(bm['TITLE'].shape[1], bm['TITLE'].shape[0]))
 
     # high-score column headers ------------------------------------------
     px = bm['HISCTOP'].copy()
