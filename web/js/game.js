@@ -109,7 +109,18 @@ export class Game {
     // stage mode (stages.js); null = the classic game, exactly as the original
     this.st = opt.stage || null;
     this.stageNo = opt.stageNo || 0;
-    this.step = (this.st && this.st.step) || SPEED_STEP;
+    // difficulty (stages.js DIFFS); null or "original" = the original game
+    this.df = opt.diff && !opt.diff.original ? opt.diff : null;
+    const df = this.df || {}, st = this.st || {};
+    this.step = st.step || df.step || SPEED_STEP;
+    this.maxL = df.maxL || 5;
+    this.startL = Math.max(st.fastStart || 0, df.startL || 0);
+    this.comboT = df.combo || 100;
+    // floor extras from the stage and/or the difficulty
+    this.fx = this.st || this.df ? {
+      moving: Math.max(st.moving || 0, df.moving || 0), crumble: Math.max(st.crumble || 0, df.crumble || 0),
+      springs: st.springs || 0, coins: st.coins || 0, slippery: !!st.slippery, wind: !!st.wind,
+    } : null;
     this.seed2 = (this.seed ^ 0x5bd1e995) >>> 0;    // separate random numbers for the stage extras
     this.crum = new Map();                         // row -> ticks Mario has stood on a crumbling floor
     this.gone = new Set();                         // crumbled rows
@@ -149,8 +160,8 @@ export class Game {
 
   // stage extras for a new normal floor (never floor 0-2, never the full floors)
   decorate(row, r) {
-    const st = this.st, f = r / 5;
-    if (f === st.goal) { row.type = 0; row.l = 0; row.rt = 40; row.goal = true; return; }
+    const st = this.fx, f = r / 5;
+    if (this.st && f === this.st.goal) { row.type = 0; row.l = 0; row.rt = 40; row.goal = true; return; }
     if (row.type !== 0 || row.rt - row.l > 30 || f < 3) return;
     if (this.chance(st.moving)) {
       const room = Math.min((row.l - 5) * 16, (34 - row.rt) * 16);
@@ -185,7 +196,10 @@ export class Game {
   genRow() {
     const r = this.R;
     const row = { type: -1, l: 0, rt: 0, n: r + 1, sign: 0, theme: Math.min((r / 500) | 0, 10) };
-    if ((r % 250 === 0 && ((r / 5) | 0) <= 1000) || r % 2500 === 0) {
+    const df = this.df;
+    const full = df ? (r === 0 || (df.full > 0 && r % df.full === 0))
+      : (r % 250 === 0 && ((r / 5) | 0) <= 1000) || r % 2500 === 0;
+    if (full) {
       row.type = 0; row.l = 0; row.rt = 40;
     } else if (r % 5 === 0) {
       const f = ((r + 1) / 5) | 0;
@@ -196,10 +210,18 @@ export class Game {
       } else {
         w = this.rand() % Math.max(1, Math.trunc((300 - f) / 30)) + 6;
       }
+      if (df) w = Math.max(df.minW || 1, Math.min(df.maxW || 28, w + (df.widen || 0)));
       row.type = 0; row.l = this.rand() % (30 - w) + 5; row.rt = row.l + w;
+      if (df) {
+        // harder maps: floors on alternate sides (zigzag), and some floors left out (never two in a row)
+        if (df.zigzag && this.lastC !== undefined) row.l = this.lastC < 20 ? 34 - w - this.rand2() % 3 : 5 + this.rand2() % 3;
+        row.rt = row.l + w;
+        if (df.skip && f >= 5 && !this.lastSkip && this.chance(df.skip)) { row.type = -1; this.lastSkip = true; }
+        else { this.lastSkip = false; this.lastC = (row.l + row.rt) / 2; }
+      }
     }
     if (r % 50 === 0) row.sign = ((r + 1) / 5) | 0;
-    if (this.st && r % 5 === 0) this.decorate(row, r);
+    if (this.fx && r % 5 === 0) this.decorate(row, r);
     this.rows[r] = row;
     const keep = 72 + Math.ceil(this.ahead / 16);
     if (r > keep) this.rows[r - keep] = undefined; // keep memory flat on long games
@@ -243,7 +265,7 @@ export class Game {
   }
 
   input(p, inp) {
-    if (this.st && this.st.slippery && p.state === 0) {   // stage "ice": slow to speed up, slow to stop
+    if (this.fx && this.fx.slippery && p.state === 0) {   // stage "ice": slow to speed up, slow to stop
       if (inp.left) { if (p.vx > 0) p.vx *= 0.93; p.vx -= 0.2; }
       else if (inp.right) { if (p.vx < 0) p.vx *= 0.93; p.vx += 0.2; }
       else p.vx *= 0.985;
@@ -334,12 +356,12 @@ export class Game {
     }
     this.S += n; p.y += n;
     if (this.S > 100 && !p.dead) {
-      if (this.L === -1) this.L = (this.st && this.st.fastStart) || 0;
+      if (this.L === -1) this.L = this.startL;
       const k = this.L === 0 ? (this.frame & 1) : this.L;
       this.S += k; p.y += k;
     } else if (!p.dead) this.timer = 0;
     if (this.hurryY + 99 <= 578 && this.hurryY >= -99 - this.ahead) this.hurryY -= 2;
-    if (!p.dead && this.L >= 0 && this.L < 5 && this.timer > this.step * (this.idx + 1)) {
+    if (!p.dead && this.L >= 0 && this.L < this.maxL && this.timer > this.step * (this.idx + 1)) {
       this.L++; this.idx++;
       this.hurryY = 479;
       this.snd('S_RING'); this.snd('S_HURRYUP');
@@ -348,7 +370,7 @@ export class Game {
 
     const wasAir = p.state !== 0;
     if (!p.dead) this.collide(p);
-    if (this.st && !p.dead) this.stageTick(p, wasAir);
+    if (this.fx && !p.dead) this.stageTick(p, wasAir);
     if (p.cart) p.ang += 8;
     if (p.cTimer) {
       p.cTimer--;
@@ -364,7 +386,7 @@ export class Game {
         const d = f - p.floor;
         if (d > 1) {
           if (p.cTimer) { p.cFloors += d; p.cJumps++; } else { p.cFloors = d; p.cJumps = 1; }
-          p.cTimer = 100;
+          p.cTimer = this.comboT;
         }
         if (d === 1 && p.cTimer) p.cTimer = 1;
         p.floor = f;
@@ -396,7 +418,7 @@ export class Game {
 
   // stage extras, every tick after the collision
   stageTick(p, wasAir) {
-    const st = this.st;
+    const st = this.fx;
     const r = this.rowIndexAt(Math.trunc(p.y)), row = this.rows[r];
     if (p.state === 0 && row && row.type === 0) {
       // moving floor: Mario rides along
@@ -414,7 +436,7 @@ export class Game {
         if (t >= 45) {
           this.gone.add(r);
           const top = TOP + this.S - 16 * r;
-          for (let c = row.l; c <= row.rt; c++) this.debris.push({ x: c * 16 + this.shift(row), y: top - 6, vx: (this.rand2() % 200 - 100) / 60, vy: -(this.rand2() % 100) / 50, a: 0, va: (this.rand2() % 100 - 50) / 300, S0: this.S });
+          for (let c = row.l; c <= row.rt; c++) this.debris.push({ x: c * 16 + this.shift(row), y: top - 6, vx: (this.rand2() % 200 - 100) / 60, vy: -(this.rand2() % 100) / 50, a: 0, va: (this.rand2() % 100 - 50) / 300, S0: this.S, set: this.st ? this.st.set : Math.min(row.theme, 9) });
           this.snd('S_SPLAT', 0.5);
         }
       }
@@ -442,7 +464,7 @@ export class Game {
       this.wind = t < 40 ? 0 : this.windDir * 0.16 * Math.min(1, (t - 40) / 30);
     }
     // the flag
-    if (p.floor >= st.goal && p.state === 0) {
+    if (this.st && p.floor >= this.st.goal && p.state === 0) {
       this.cleared = true; this.clearT = 0;
       this.snd('V_CLEAR'); this.snd('S_CHEER', 0.8);
     }
@@ -519,8 +541,7 @@ export class Game {
       if (row.goal) drawFlag(ctx, 470, top, this.cleared ? Math.min(1, this.clearT / 60) : 0);
     }
     if (this.debris.length) {                        // pieces of a crumbled floor
-      const M = FLOOR_SETS[this.st.set][1];
-      for (const d of this.debris) G.img(M, d.x, d.y + Sv - d.S0, { rot: d.a, cx: d.x + 8, cy: d.y + 8 + Sv - d.S0 });
+      for (const d of this.debris) G.img(FLOOR_SETS[d.set][1], d.x, d.y + Sv - d.S0, { rot: d.a, cx: d.x + 8, cy: d.y + 8 + Sv - d.S0 });
     }
 
     // stars
@@ -618,13 +639,15 @@ export class Game {
     // combo meter + liquid
     G.img('COMBO_METER', 20, 100 + T);
     if (p.cTimer > 0) {
-      const lv = Math.min(100, p.cTimer);
+      const lv = Math.min(100, Math.round(p.cTimer * 100 / this.comboT));
       G.part('COMBO_LIQUID', 0, 100 - lv, 16, lv, 31, 219 - lv + T);
     }
     if (p.cTimer > 0 && p.cFloors > 0) {
       G.img('COMBO_COUNT', -10, 210 + T);
       G.text('FONT1', String(p.cFloors), 40, 214 + T, 'center');
     }
+
+    if (this.df && !this.st) G.smallText('רמה: ' + this.df.name, 320, T + 6, 'center');
 
     // score (the Hebrew string of the patched exe: "ניקוד: %d")
     G.text('FONT1', 'ניקוד: ' + this.score, 8, 440);

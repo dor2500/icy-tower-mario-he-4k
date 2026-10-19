@@ -3,7 +3,7 @@ import * as G from './gfx.js';
 import * as S from './sound.js';
 import * as I from './input.js';
 import { Game } from './game.js';
-import { STAGES, progress, markDone } from './stages.js';
+import { STAGES, DIFFS, progress, markDone } from './stages.js';
 
 const TICK = 20;                                       // 50 logic ticks per second, like the original
 const $ = s => document.querySelector(s);
@@ -11,15 +11,20 @@ const canvas = $('#game');
 G.attach(canvas);
 
 // ------------------------------------------------------------------ settings & highscores
-const DEF = { gfx: 'hd', res: 'auto', sound: true, music: true, rejump: false, touch: 'auto', name: '' };
+const DEF = { gfx: 'hd', res: 'auto', sound: true, music: true, rejump: false, touch: 'auto', name: '', diff: 1 };
 const cfg = Object.assign({}, DEF, JSON.parse(localStorage.getItem('icymario.cfg') || '{}'));
 const saveCfg = () => localStorage.setItem('icymario.cfg', JSON.stringify(cfg));
 const DEFAULT_SCORES = [
   { name: 'FLD', score: 3000, floor: 150, combo: 25 }, { name: 'FLD', score: 2000, floor: 100, combo: 15 },
   { name: 'FLD', score: 1000, floor: 60, combo: 10 }, { name: 'FLD', score: 500, floor: 35, combo: 7 },
   { name: 'FLD', score: 250, floor: 20, combo: 4 }];
-let scores = JSON.parse(localStorage.getItem('icymario.scores') || 'null') || DEFAULT_SCORES;
-const saveScores = () => localStorage.setItem('icymario.scores', JSON.stringify(scores));
+// a highscore table per difficulty (`בינוני` keeps the original key)
+const diff = () => DIFFS[cfg.diff] || DIFFS[1];
+const scoreKey = () => diff().original ? 'icymario.scores' : 'icymario.scores.' + diff().id;
+let scores;
+const loadScores = () => { scores = JSON.parse(localStorage.getItem(scoreKey()) || 'null') || (diff().original ? DEFAULT_SCORES : []); };
+loadScores();
+const saveScores = () => localStorage.setItem(scoreKey(), JSON.stringify(scores));
 const qualifies = sc => sc > 0 && (scores.length < 5 || sc > scores[scores.length - 1].score);
 
 S.init(cfg);
@@ -188,7 +193,7 @@ function menuList(items, x, y0, step) {
 
 // highscore table, laid out like the original title screen (positions measured on the real game)
 function drawScoreTable() {
-  G.text('FONT2', 'שיאים', 470, 239, 'center');
+  G.text('FONT2', diff().original ? 'שיאים' : 'שיאים - ' + diff().name, 470, 239, 'center');
   G.smallText('ניקוד', 618, 262, 'right');
   G.smallText('קומבו', 540, 262, 'right');
   G.smallText('קומה', 458, 262, 'right');
@@ -211,7 +216,7 @@ const Menu = {
     const r = this.list.handle(p, taps);
     this.sel = this.list.sel;
     if (r && r.pick !== undefined) {
-      if (r.pick === 0) go(Play.start());
+      if (r.pick === 0) go(Levels);
       if (r.pick === 1) go(Stages);
       if (r.pick === 2) go(Instructions);
       if (r.pick === 3) go(Options);
@@ -248,6 +253,44 @@ const Instructions = {
   draw() { if (G.getMargin() || G.view().h > 481) wideBg('TITLE_BG'); G.img('INSTRUCTIONS', 0, 0); },
 };
 
+// difficulty select (before a classic game): קל / בינוני (the original) / קשה / מומחה / בלתי אפשרי
+const Levels = {
+  Y0: 84, STEP: 64,
+  enter() { this.sel = cfg.diff ?? 1; this.t = 0; },
+  pick(i) {
+    S.play('S_MENU_CHOOSE');
+    if (i === DIFFS.length) { go(Menu); return; }
+    cfg.diff = i; saveCfg(); loadScores();
+    go(Play.start());
+  },
+  update(p, taps) {
+    this.t++;
+    const n = DIFFS.length + 1;
+    if (p.has('up')) { this.sel = (this.sel + n - 1) % n; S.play('S_MENU_CHANGE'); }
+    if (p.has('down')) { this.sel = (this.sel + 1) % n; S.play('S_MENU_CHANGE'); }
+    if (p.has('back')) { go(Menu); return; }
+    for (const t of taps) {
+      const i = Math.floor((t.y - this.Y0 + 6) / this.STEP);
+      if (i >= 0 && i < n && t.x > 110 && t.x < 530) { this.sel = i; this.pick(i); return; }
+    }
+    if (p.has('ok')) this.pick(this.sel);
+  },
+  draw(a) {
+    wideBg('TITLE_BG');
+    G.img('REPLAY_BG', 103, 25);
+    G.text('FONT1', 'בחרו רמה', 320, 28, 'center');
+    DIFFS.forEach((d, i) => {
+      const y = this.Y0 + i * this.STEP;
+      G.text('FONT1', d.name, 492, y - 10, 'right');
+      G.smallText(d.desc, 492, y + 26, 'right');
+      for (let k = 0; k <= i; k++) G.img('STAR0' + (1 + (k + (this.t >> 3)) % 8), 140 + k * 14, y + 6);  // 1-5 stars
+    });
+    G.text('FONT2', 'חזרה', 492, this.Y0 + DIFFS.length * this.STEP - 6, 'right');
+    const by = this.Y0 + this.sel * this.STEP - 10 + Math.sin(this.t / 6) * 1.5;
+    G.img('MENU_BULLET', 498, by, { flip: true, scale: 0.7, cx: 516, cy: by + 26 });
+  },
+};
+
 // stage select: 10 stages, each opens when the one before is done (progress in localStorage)
 const Stages = {
   Y0: 90, STEP: 33,
@@ -263,7 +306,9 @@ const Stages = {
     if (p.has('up')) { this.sel = (this.sel + n - 1) % n; S.play('S_MENU_CHANGE'); }
     if (p.has('down')) { this.sel = (this.sel + 1) % n; S.play('S_MENU_CHANGE'); }
     if (p.has('back')) { go(Menu); return; }
+    if (p.has('left') || p.has('right')) { cfg.diff = (cfg.diff + (p.has('left') ? -1 : 1) + DIFFS.length) % DIFFS.length; saveCfg(); loadScores(); S.play('S_MENU_CHANGE'); }
     for (const t of taps) {
+      if (t.y >= 58 && t.y < 80) { cfg.diff = (cfg.diff + 1) % DIFFS.length; saveCfg(); loadScores(); S.play('S_MENU_CHANGE'); return; }
       const i = Math.floor((t.y - this.Y0 + 4) / this.STEP);
       if (i >= 0 && i < n && t.x > 110 && t.x < 530) { this.sel = i; this.pick(i); return; }
     }
@@ -273,7 +318,7 @@ const Stages = {
     wideBg('TITLE_BG');
     G.img('REPLAY_BG', 103, 25);
     G.text('FONT1', 'שלבים', 320, 30, 'center');
-    G.smallText(`הושלמו ${this.pr.done.length} מתוך ${STAGES.length}`, 320, 66, 'center');
+    G.smallText(`הושלמו ${this.pr.done.length} מתוך ${STAGES.length}   ·   רמה: ${diff().name} (הקישו לשינוי)`, 320, 66, 'center');
     const ctx = G.context();
     STAGES.forEach((st, i) => {
       const y = this.Y0 + i * this.STEP;
@@ -340,7 +385,7 @@ const Play = {
   stage: -1,                                         // -1 = classic game, else index into STAGES
   start(seed, stage = -1) {
     this.stage = stage;
-    this.game = new Game({ rejump: cfg.rejump, seed, ahead: aheadPx(), stage: STAGES[stage], stageNo: stage });
+    this.game = new Game({ rejump: cfg.rejump, seed, ahead: aheadPx(), stage: STAGES[stage], stageNo: stage, diff: diff() });
     return this;
   },
   again() { return this.start(undefined, this.stage); },
@@ -475,6 +520,7 @@ const GameOver = {
       return;
     }
     G.text('FONT1', 'המשחק נגמר', 320, 60, 'center');
+    G.smallText('רמה: ' + diff().name, 320, 108, 'center');
     G.text('FONT2', 'ניקוד: ' + this.score, 320, 140, 'center');
     G.text('FONT2', 'קומה: ' + this.floor, 320, 180, 'center');
     G.text('FONT2', 'הקומבו הטוב: ' + this.combo, 320, 220, 'center');
@@ -555,7 +601,7 @@ function frame(now) {
 
 // debug / screenshot hooks (used by tools/webshot.py)
 window.__icy = {
-  go, Menu, Play, Options, Instructions, GameOver, Pause, Stages, cfg, get screen() { return screen; },
+  go, Menu, Play, Options, Instructions, GameOver, Pause, Stages, Levels, cfg, get screen() { return screen; },
   // advance n logic ticks, draw, return the picture (used with window.__icyManual = true)
   step(n = 1, type = 'image/jpeg', q = 0.93) {
     for (let i = 0; i < n; i++) screen.update(I.take(), I.taps());

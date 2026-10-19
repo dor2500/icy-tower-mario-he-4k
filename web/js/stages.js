@@ -17,6 +17,20 @@ export const STAGES = [
   { name: 'הכל ביחד', desc: 'האתגר הגדול: כל ההפתעות', goal: 100, set: 9, moving: 0.3, crumble: 0.25, springs: 0.15, coins: 0.4, wind: true },
 ];
 
+// difficulty levels: they change the map (floor width, full floors), the tower's speed and the combo time.
+//   widen: tiles added to every floor (negative = narrower), minW/maxW: limits (floor = w+1 tiles)
+//   full: a full-width floor every `full` rows (0 = only floor 0), step: ticks between speed-ups,
+//   maxL: top speed (px per tick), startL: speed when the tower starts, combo: combo timer (ticks)
+//   moving / crumble: share of floors that move / crumble, skip: share of floors left out (never 2 in a row)
+//   zigzag: each floor on the other side of the tower from the one below.  "בינוני" is the original game, untouched.
+export const DIFFS = [
+  { id: 'easy', name: 'קל', desc: 'קומות רחבות, ומגדל איטי ונינוח', widen: 4, minW: 9, full: 125, step: 2250, maxL: 3, startL: 0, combo: 140 },
+  { id: 'normal', name: 'בינוני', desc: 'המשחק המקורי בדיוק', original: true },
+  { id: 'hard', name: 'קשה', desc: 'קומות צרות, חסרות קומות, מאיץ כל 20 שניות', widen: -2, minW: 4, full: 500, step: 1000, maxL: 6, startL: 0, combo: 90, skip: 0.1 },
+  { id: 'expert', name: 'מומחה', desc: 'זיגזג של קומות צרות מאוד, חלקן זזות', widen: -4, minW: 3, full: 1000, step: 750, maxL: 7, startL: 1, combo: 80, moving: 0.15, skip: 0.2, zigzag: true },
+  { id: 'insane', name: 'בלתי אפשרי', desc: 'קומות זעירות שזזות ומתפוררות, מהירות מטורפת', minW: 2, maxW: 3, full: 0, step: 500, maxL: 8, startL: 2, combo: 70, moving: 0.25, crumble: 0.2, skip: 0.3, zigzag: true },
+];
+
 const KEY = 'icymario.stages';
 export function progress() {
   try { return Object.assign({ open: 1, done: [], coins: {} }, JSON.parse(localStorage.getItem(KEY) || '{}')); }
