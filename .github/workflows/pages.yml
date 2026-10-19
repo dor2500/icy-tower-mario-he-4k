@@ -3,12 +3,12 @@
 # from icytower13_mario_he_web.zip of the latest release.
 name: Deploy HTML version to GitHub Pages
 
+# (after a new release with new assets: run it by hand - "gh workflow run pages.yml" - since the
+#  github-pages environment only accepts deployments from main, not from the release tag)
 on:
   push:
     branches: [main]
     paths: ['web/**', '.github/workflows/pages.yml']
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:
