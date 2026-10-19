@@ -457,7 +457,9 @@ function gpuName() {
 }
 const Options = {
   Y: 92, STEP: 34,
-  enter() { this.list = menuList(['', '', '', '', '', '', '', '', ''], 140, this.Y + 4, this.STEP); this.gpu = this.gpu ?? gpuName(); },
+  // desktop app (icytower13.exe): one more item, the original 2003 engine (icytower13_classic.exe)
+  get BACK() { return APP ? 9 : 8; },
+  enter() { this.STEP = APP ? 31 : 34; this.list = menuList(Array(this.BACK + 1).fill(''), 140, this.Y + 4, this.STEP); this.gpu = this.gpu ?? gpuName(); },
   labels() {
     return [
       'גרפיקה: ' + (cfg.gfx === 'hd' ? 'חדה (HD)' : 'פיקסלים'),
@@ -469,6 +471,7 @@ const Options = {
         : 'כפתורי מגע: ' + ({ auto: 'אוטומטי', on: 'כן', off: 'לא' })[cfg.touch],
       'דמות: ' + getChar().name,
       'מצב פרסומות: ' + yesNo(cfg.ads),
+      ...(APP ? ['המשחק המקורי (קלאסי)'] : []),
       'חזרה',
     ];
   },
@@ -489,7 +492,8 @@ const Options = {
     if (p.has('back')) { go(Menu); return; }
     if (!r) return;
     const i = r.pick !== undefined ? r.pick : this.list.sel;
-    if (i === 8) { if (r.pick !== undefined) go(Menu); return; }
+    if (i === this.BACK) { if (r.pick !== undefined) go(Menu); return; }
+    if (APP && i === 8) { if (r.pick !== undefined) toHost('classic'); return; }
     this.change(i, r.side || 1);
   },
   draw(a) {

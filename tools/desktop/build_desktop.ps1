@@ -1,7 +1,7 @@
-# Builds the desktop extended edition: <Out>\IcyMario.exe (WebView2 host, tools\desktop\IcyMario.cs) + <Out>\web
+# Builds the desktop edition with all the changes: <Out>\<Name>.exe (build.ps1: icytower13.exe) (WebView2 host, tools\desktop\IcyMario.cs) + <Out>\web
 # (the HTML version with its generated assets). Needs: .NET Framework 4 csc (in every Windows), internet once for the
 # WebView2 SDK (NuGet, cached in work\dl\webview2), web\assets built by tools\build_web.py.
-param([Parameter(Mandatory)][string]$Out, [string]$Icon)
+param([Parameter(Mandatory)][string]$Out, [string]$Icon, [string]$Name = 'IcyMario')
 $ErrorActionPreference = 'Stop'
 $R = Split-Path (Split-Path $PSScriptRoot)
 $pkg = "$R\work\dl\webview2\pkg"
@@ -16,7 +16,7 @@ New-Item -ItemType Directory -Force $Out | Out-Null
 $lib = "$pkg\lib\net462"
 Copy-Item "$lib\Microsoft.Web.WebView2.Core.dll", "$pkg\runtimes\win-x64\native\WebView2Loader.dll" $Out
 $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
-$cargs = @('/nologo', '/target:winexe', '/platform:x64', '/optimize+', "/out:$Out\IcyMario.exe",
+$cargs = @('/nologo', '/target:winexe', '/platform:x64', '/optimize+', "/out:$Out\$Name.exe",
   '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', "/r:$Out\Microsoft.Web.WebView2.Core.dll")
 if ($Icon) { $cargs += "/win32icon:$Icon" }
 & $csc @cargs "$PSScriptRoot\IcyMario.cs"

@@ -3,8 +3,8 @@
 Order and spacing of leading/trailing blanks is preserved by the patcher."""
 
 SCROLLER = [
-    'ברוכים הבאים ל-Icy Tower!',
-    'עוד משחק מבית Free Lunch Design.',
+    'ברוכים הבאים לאייסי טאוור!',
+    "עוד משחק מבית פרי לאנץ' דיזיין.",
     'עזרו לסופר מריו לטפס הכי גבוה שאפשר!',
     'זזים עם החצים וקופצים עם מקש הרווח.',
     'בהצלחה!',
@@ -73,7 +73,7 @@ T = [
     # Windows message boxes (allegro_message -> MessageBoxW): keep logical order
     ('Failed reserve memory for highscore table.', 'הקצאת זיכרון לטבלת השיאים נכשלה.', 'logical'),
     ('Failed reserve memory screen buffers.', 'הקצאת זיכרון למסך נכשלה.', 'logical'),
-    ('The file\n<%s>\nis not a vaild Icy Tower replay.', 'הקובץ\n<%s>\nאינו שידור חוזר תקין של Icy Tower.', 'logical'),
+    ('The file\n<%s>\nis not a vaild Icy Tower replay.', 'הקובץ\n<%s>\nאינו שידור חוזר תקין של אייסי טאוור.', 'logical'),
     ('<%s>\nis not a vaild option.', '<%s>\nאינו אפשרות תקינה.', 'logical'),
     ('Failed to load datafile.', 'טעינת קובץ הנתונים נכשלה.', 'logical'),
     ('Failed to allocate memory for player.', 'הקצאת זיכרון לשחקן נכשלה.', 'logical'),
@@ -123,7 +123,7 @@ T = [
     ('COMBO', 'קומבו'),
     ('DATE ', 'תאריך '),
     ('This is a directory.', 'זוהי תיקייה.'),
-    ('Not a valid Icy Tower replay.', 'זה לא שידור חוזר תקין של Icy Tower.'),
+    ('Not a valid Icy Tower replay.', 'זה לא שידור חוזר תקין של אייסי טאוור.'),
     ("Do you really want to delete '%s'?", "בטוח שרוצים למחוק את '%s'?"),
     ('WARNING: It will be gone forever.', 'אזהרה: הוא יימחק לתמיד.'),
     ('Enter new name:', 'שם חדש'),

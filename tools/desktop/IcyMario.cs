@@ -1,8 +1,9 @@
-// IcyMario.exe - the extended edition on the desktop: the HTML version (web\: stages, difficulty levels, characters,
+// icytower13.exe (built from this file) - the game on the desktop with all the changes: the HTML version (web\: stages, difficulty levels, characters,
 // auto play, ads mode) in a full-screen WebView2 window, offline, drawn on the strong graphics card (NVIDIA / AMD).
 // Built by tools\desktop\build_desktop.ps1 (csc of .NET Framework 4 + the WebView2 SDK from NuGet).
 //   web\ next to the exe is served as https://icymario.game/ ; settings and highscores: %LOCALAPPDATA%\IcyMario
-//   messages from the page: "exit", "fullscreen" (F11 / Alt+Enter), "open:<url>" (ads -> default browser)
+//   messages from the page: "exit", "fullscreen" (F11 / Alt+Enter), "open:<url>" (ads -> default browser),
+//   "classic" (start the original 2003 engine, icytower13_classic.exe next to this exe, and close)
 using System;
 using System.Diagnostics;
 using System.Drawing;
@@ -30,7 +31,7 @@ static class Program {
     try {
       string dir = AppDomain.CurrentDomain.BaseDirectory;
       using (RegistryKey k = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\DirectX\UserGpuPreferences")) {
-        foreach (string exe in new[] { Application.ExecutablePath, Path.GetFullPath(Path.Combine(dir, @"..\icytower13.exe")) }) {
+        foreach (string exe in new[] { Application.ExecutablePath, Path.Combine(dir, "icytower13_classic.exe") }) {
           if (File.Exists(exe) && k.GetValue(exe) == null) k.SetValue(exe, "GpuPreference=2;");
         }
       }
@@ -133,6 +134,13 @@ class GameForm : Form {
     if (m == "exit") Close();
     else if (m == "fullscreen") SetFull(!full);
     else if (m.StartsWith("open:")) OpenUrl(m.Substring(5));
+    else if (m == "classic") {
+      string exe = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icytower13_classic.exe");
+      if (File.Exists(exe)) {
+        try { Process.Start(new ProcessStartInfo(exe) { WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory, UseShellExecute = true }); Close(); }
+        catch (Exception) { }
+      }
+    }
   }
 
   static void OpenUrl(string url) {

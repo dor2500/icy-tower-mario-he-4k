@@ -22,7 +22,7 @@ py "$T\build_data.py" "$orig\data\data.dat" "$A\data\data.dat" "$W\he_images"
 # 3. exe: Mario icon FIRST (UpdateResource rewrites the PE), then the Hebrew strings in a new .heb section
 Copy-Item "$W\unpacked\icytower13.exe" "$W\icytower13_icon.exe" -Force
 py "$T\set_icon.py" "$W\icytower13_icon.exe" "$W\he_images\mario.ico"
-py "$T\patch_exe.py" "$W\icytower13_icon.exe" "$A\icytower13.exe"
+py "$T\patch_exe.py" "$W\icytower13_icon.exe" "$A\icytower13_classic.exe"   # the original engine (icytower13.exe = step 6)
 
 # 4. Super Mario character (default) + 4K via cnc-ddraw
 py "$T\make_mario.py" $A
@@ -45,9 +45,11 @@ Copy-Item "$W\he_images\mario.ico" "$W\installer\mario.ico"
 #    see tools\xbrz\xbrz_cli.cpp). Without -MarioAudio the web version has no music.
 if (Test-Path "$W\bin\xbrz_cli.exe") { py "$T\build_web.py" $A "$R\web\assets" "$W\bin\xbrz_cli.exe" }
 
-# 6. the extended edition for the desktop: the HTML version (stages, levels, characters, auto play, ads mode) in a
-#    WebView2 window on the strong GPU -> he_app\extended\IcyMario.exe (tools\desktop)
-& "$T\desktop\build_desktop.ps1" -Out "$A\extended" -Icon "$W\he_images\mario.ico"
+# 6. icytower13.exe = the game with all the changes: the faithful port (web\: stages, levels, characters, auto play,
+#    ads mode) in a WebView2 window on the strong GPU (tools\desktop); its options start the original engine
+#    (icytower13_classic.exe). Built in work\desktop, then copied next to the game files.
+& "$T\desktop\build_desktop.ps1" -Out "$W\desktop" -Icon "$W\he_images\mario.ico" -Name icytower13
+Copy-Item "$W\desktop\*" $A -Recurse -Force
 
 # 7. installer (classic game + extended edition)
 if (-not $NoInstaller) {
