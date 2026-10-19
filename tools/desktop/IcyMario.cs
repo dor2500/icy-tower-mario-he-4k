@@ -119,7 +119,9 @@ class GameForm : Form {
     core.ContainsFullScreenElementChanged += (o, a) => SetFull(core.ContainsFullScreenElement || full);
     core.DocumentTitleChanged += (o, a) => { if (!string.IsNullOrEmpty(core.DocumentTitle)) Text = core.DocumentTitle; };
     core.NavigationCompleted += (o, a) => FocusGame();
-    core.Navigate("https://icymario.game/index.html");
+    // "--modern" (the shortcut "Icy Tower - מודרני"): straight into the modern edition (web\modern)
+    bool modern = Array.Exists(Environment.GetCommandLineArgs(), x => x.Equals("--modern", StringComparison.OrdinalIgnoreCase));
+    core.Navigate(modern ? "https://icymario.game/modern/index.html" : "https://icymario.game/index.html");
     FocusGame();
   }
 

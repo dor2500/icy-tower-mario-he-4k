@@ -225,7 +225,7 @@ function drawScoreTable() {
 
 const Menu = {
   t: 0, scroll: 0,
-  labels() { return ['התחל משחק', 'שלבים', 'דמויות', 'משחק אוטומטי', 'פרסומות: ' + (cfg.ads ? 'פועל' : 'כבוי'), 'הוראות', 'אפשרויות', APP ? 'יציאה' : isFull() ? 'יציאה ממסך מלא' : 'מסך מלא']; },
+  labels() { return ['התחל משחק', 'שלבים', 'דמויות', 'משחק אוטומטי', 'פרסומות: ' + (cfg.ads ? 'פועל' : 'כבוי'), 'גרסה מודרנית', 'אפשרויות', APP ? 'יציאה' : isFull() ? 'יציאה ממסך מלא' : 'מסך מלא']; },
   enter() { this.list = menuList(this.labels(), 40, 232, 25); this.list.sel = this.sel || 0; },
   update(p, taps) {
     this.t++;
@@ -238,7 +238,7 @@ const Menu = {
       if (r.pick === 2) go(Chars);
       if (r.pick === 3) { Levels.auto = true; go(Levels); }
       if (r.pick === 4) { cfg.ads = !cfg.ads; saveCfg(); Ads.setOn(cfg.ads); resize(); }   // ads mode, right here
-      if (r.pick === 5) go(Instructions);
+      if (r.pick === 5) location.href = 'modern/index.html';           // the modern edition (web/modern)
       if (r.pick === 6) go(Options);
       if (r.pick === 7) { if (APP) toHost('exit'); else toggleFullscreen(); }
     }
@@ -484,8 +484,8 @@ function gpuName() {
 const Options = {
   Y: 92, STEP: 34,
   // desktop app (icytower13.exe): one more item, the original 2003 engine (icytower13_classic.exe)
-  get BACK() { return APP ? 9 : 8; },
-  enter() { this.STEP = APP ? 31 : 34; this.list = menuList(Array(this.BACK + 1).fill(''), 140, this.Y + 4, this.STEP); this.gpu = this.gpu ?? gpuName(); },
+  get BACK() { return APP ? 10 : 9; },             // ... + הוראות (8) + (app) the original engine (9) + חזרה
+  enter() { this.STEP = APP ? 29 : 31; this.list = menuList(Array(this.BACK + 1).fill(''), 140, this.Y + 4, this.STEP); this.gpu = this.gpu ?? gpuName(); },
   labels() {
     return [
       'גרפיקה: ' + (cfg.gfx === 'hd' ? 'חדה (HD)' : 'פיקסלים'),
@@ -497,6 +497,7 @@ const Options = {
         : 'כפתורי מגע: ' + ({ auto: 'אוטומטי', on: 'כן', off: 'לא' })[cfg.touch],
       'דמות: ' + getChar().name,
       'מצב פרסומות: ' + yesNo(cfg.ads),
+      'הוראות',
       ...(APP ? ['המשחק המקורי (קלאסי)'] : []),
       'חזרה',
     ];
@@ -519,7 +520,8 @@ const Options = {
     if (!r) return;
     const i = r.pick !== undefined ? r.pick : this.list.sel;
     if (i === this.BACK) { if (r.pick !== undefined) go(Menu); return; }
-    if (APP && i === 8) { if (r.pick !== undefined) toHost('classic'); return; }
+    if (i === 8) { if (r.pick !== undefined) go(Instructions); return; }
+    if (APP && i === 9) { if (r.pick !== undefined) toHost('classic'); return; }
     this.change(i, r.side || 1);
   },
   draw(a) {
