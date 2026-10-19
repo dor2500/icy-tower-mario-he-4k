@@ -224,8 +224,8 @@ function drawScoreTable() {
 
 const Menu = {
   t: 0, scroll: 0,
-  labels() { return ['התחל משחק', 'שלבים', 'דמויות', 'משחק אוטומטי', 'הוראות', 'אפשרויות', APP ? 'יציאה' : isFull() ? 'יציאה ממסך מלא' : 'מסך מלא']; },
-  enter() { this.list = menuList(this.labels(), 40, 254, 27); this.list.sel = this.sel || 0; },
+  labels() { return ['התחל משחק', 'שלבים', 'דמויות', 'משחק אוטומטי', 'פרסומות: ' + (cfg.ads ? 'פועל' : 'כבוי'), 'הוראות', 'אפשרויות', APP ? 'יציאה' : isFull() ? 'יציאה ממסך מלא' : 'מסך מלא']; },
+  enter() { this.list = menuList(this.labels(), 40, 232, 25); this.list.sel = this.sel || 0; },
   update(p, taps) {
     this.t++;
     this.scroll += 2;
@@ -236,9 +236,10 @@ const Menu = {
       if (r.pick === 1) go(Stages);
       if (r.pick === 2) go(Chars);
       if (r.pick === 3) { Levels.auto = true; go(Levels); }
-      if (r.pick === 4) go(Instructions);
-      if (r.pick === 5) go(Options);
-      if (r.pick === 6) { if (APP) toHost('exit'); else toggleFullscreen(); }
+      if (r.pick === 4) { cfg.ads = !cfg.ads; saveCfg(); Ads.setOn(cfg.ads); resize(); }   // ads mode, right here
+      if (r.pick === 5) go(Instructions);
+      if (r.pick === 6) go(Options);
+      if (r.pick === 7) { if (APP) toHost('exit'); else toggleFullscreen(); }
     }
   },
   draw(a) {
