@@ -5,7 +5,7 @@
 AppId={{E68BE168-0CE8-45CC-A111-F6A640C24D5F}
 AppName=Icy Tower 1.3.1 - סופר מריו (עברית)
 AppVersion=1.3.1
-AppVerName=Icy Tower 1.3.1 - סופר מריו, בעברית, 4K (גרסה 1.5)
+AppVerName=Icy Tower 1.3.1 - סופר מריו, בעברית, 4K (גרסה 1.7)
 AppPublisher=Free Lunch Design
 AppPublisherURL=http://www.freelunchdesign.com
 DefaultDirName={autopf}\Icy Tower 1.3
@@ -23,7 +23,7 @@ PrivilegesRequired=admin
 ShowLanguageDialog=no
 VersionInfoCompany=Free Lunch Design
 VersionInfoDescription=Icy Tower v1.3.1 - Super Mario Edition (Hebrew, 4K)
-VersionInfoVersion=1.5.0.0
+VersionInfoVersion=1.7.0.0
 
 [Languages]
 Name: "hebrew"; MessagesFile: "compiler:Languages\Hebrew.isl"
@@ -50,11 +50,13 @@ Source: "{#AppDir}\tower.cfg"; DestDir: "{app}"; Flags: onlyifdoesntexist
 [Icons]
 ; icytower13.exe = the game with all the changes (tools\desktop); icytower13_classic.exe = the original engine
 Name: "{group}\Icy Tower - סופר מריו"; Filename: "{app}\icytower13.exe"; WorkingDir: "{app}"
+Name: "{group}\Icy Tower - מודרני"; Filename: "{app}\icytower13.exe"; Parameters: "--modern"; WorkingDir: "{app}"
 Name: "{group}\Icy Tower - המשחק המקורי (קלאסי)"; Filename: "{app}\icytower13_classic.exe"; WorkingDir: "{app}"
 Name: "{group}\קרא אותי"; Filename: "{app}\readme.txt"
 Name: "{group}\מדריך דמויות מותאמות"; Filename: "{app}\characters\characters.txt"
 Name: "{group}\{cm:UninstallProgram,Icy Tower}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\Icy Tower - סופר מריו"; Filename: "{app}\icytower13.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autodesktop}\Icy Tower - מודרני"; Filename: "{app}\icytower13.exe"; Parameters: "--modern"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\icytower13.exe"; WorkingDir: "{app}"; Description: "{cm:LaunchProgram,Icy Tower}"; Flags: nowait postinstall skipifsilent

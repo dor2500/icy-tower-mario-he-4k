@@ -23,6 +23,6 @@ if ($Icon) { $cargs += "/win32icon:$Icon" }
 if ($LASTEXITCODE) { throw 'csc failed' }
 # the game itself (no service worker: the app is offline anyway)
 New-Item -ItemType Directory -Force "$Out\web" | Out-Null
-Copy-Item "$R\web\index.html", "$R\web\style.css", "$R\web\manifest.webmanifest" "$Out\web"
-Copy-Item "$R\web\js", "$R\web\fonts", "$R\web\assets" "$Out\web" -Recurse
+Copy-Item "$R\web\index.html", "$R\web\style.css", "$R\web\ads.css", "$R\web\manifest.webmanifest" "$Out\web"
+Copy-Item "$R\web\js", "$R\web\fonts", "$R\web\assets", "$R\web\modern" "$Out\web" -Recurse
 "desktop edition: $Out"

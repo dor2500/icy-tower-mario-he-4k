@@ -11,8 +11,8 @@ import * as G from './gfx.js';
 import * as S from './sound.js';
 import { drawHero, getChar } from './chars.js';
 
-const TOP = 432;                                  // screen y of row 0 (floor 0) when scroll = 0
-const SPEED_STEP = 1500;                           // ticks between speed-ups (30 s)
+export const TOP = 432;                                  // screen y of row 0 (floor 0) when scroll = 0
+export const SPEED_STEP = 1500;                           // ticks between speed-ups (30 s)
 const FLOOR_SETS = [['FLOOR01', 'FLOOR02', 'FLOOR03'], ['FLOOR04', 'FLOOR05', 'FLOOR06'], ['FLOOR07', 'FLOOR08', 'FLOOR09'],
   ['FLOOR10', 'FLOOR11', 'FLOOR12'], ['FLOOR12a', 'FLOOR12b', 'FLOOR12c'], ['FLOOR13', 'FLOOR14', 'FLOOR15'],
   ['FLOOR16', 'FLOOR17', 'FLOOR18'], ['FLOOR18a', 'FLOOR18b', 'FLOOR18c'], ['FLOOR19', 'FLOOR20', 'FLOOR21'],
@@ -29,7 +29,7 @@ function rewardLevel(f) {
 // game's cartoon style (thick dark outline), so they are sharp at any resolution like the HD sprites
 const INK = '#120818';
 
-function drawCoin(ctx, x, y, t) {                    // spinning Mario coin
+export function drawCoin(ctx, x, y, t) {                    // spinning Mario coin
   const w = 7.5 * Math.abs(Math.cos(t)) + 1.2, h = 10.5;
   ctx.save(); ctx.translate(x, y);
   const g = ctx.createLinearGradient(0, -h, 0, h);
@@ -45,7 +45,7 @@ function drawCoin(ctx, x, y, t) {                    // spinning Mario coin
   ctx.restore();
 }
 
-function drawSpring(ctx, x, y, t) {                  // red springboard; squashes when used
+export function drawSpring(ctx, x, y, t) {                  // red springboard; squashes when used
   const hgt = t > 6 ? 6 : t > 0 ? 18 : 13;
   ctx.save(); ctx.translate(x, y);
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
@@ -58,7 +58,7 @@ function drawSpring(ctx, x, y, t) {                  // red springboard; squashe
   ctx.restore();
 }
 
-function drawFlag(ctx, x, y, down) {                 // Mario's goal flagpole; the flag slides down when reached
+export function drawFlag(ctx, x, y, down) {                 // Mario's goal flagpole; the flag slides down when reached
   const H = 168;
   ctx.save(); ctx.translate(x, y);
   ctx.strokeStyle = INK; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -H); ctx.stroke();
@@ -73,7 +73,7 @@ function drawFlag(ctx, x, y, down) {                 // Mario's goal flagpole; t
   ctx.restore();
 }
 
-function drawCracks(ctx, x, top, w, seed) {           // crumbling floors show cracks
+export function drawCracks(ctx, x, top, w, seed) {           // crumbling floors show cracks
   ctx.save(); ctx.strokeStyle = 'rgba(18,8,24,.75)'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
   for (let i = 0; i < Math.max(2, w / 40); i++) {
     const cx = x + ((seed * 37 + i * 53) % Math.max(8, w - 8)) + 4;
@@ -82,7 +82,7 @@ function drawCracks(ctx, x, top, w, seed) {           // crumbling floors show c
   ctx.restore();
 }
 
-function drawLava(ctx, v, t) {                        // Bowser's castle: glowing lava at the bottom of the screen
+export function drawLava(ctx, v, t) {                        // Bowser's castle: glowing lava at the bottom of the screen
   const base = v.y + v.h - 26;
   ctx.save();
   const glow = ctx.createLinearGradient(0, base - 90, 0, base);

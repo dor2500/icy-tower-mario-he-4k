@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b1440">
+<meta name="description" content="אייסי טאוור - המהדורה המודרנית: אותו משחק, בגרפיקה חדשה במסך רחב, עם שמיים שמשתנים לפי הגובה, אפקטים ותפריטים חדשים.">
+<title>אייסי טאוור - המהדורה המודרנית</title>
+<link rel="icon" href="../assets/icons/icon-192.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="stylesheet" href="../ads.css">
+<link rel="stylesheet" href="modern.css">
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="adTop" class="ad top" role="link" hidden></div>
+<div id="adBot" class="ad bot" role="link" hidden></div>
+
+<!-- main menu (over a live demo of the tower) -->
+<section id="menu" class="screen">
+  <div class="brand">
+    <h1>אייסי טאוור</h1>
+    <div class="tag">המהדורה המודרנית</div>
+  </div>
+  <div class="panel">
+    <div class="row hero-pick">
+      <button class="arrow" data-act="charPrev" aria-label="הדמות הקודמת">›</button>
+      <div class="hero"><b id="heroName"></b><small id="heroGame"></small></div>
+      <button class="arrow" data-act="charNext" aria-label="הדמות הבאה">‹</button>
+    </div>
+    <div class="chips" id="diffs"></div>
+    <div class="desc" id="diffDesc"></div>
+    <button class="big" data-act="play">שחק</button>
+    <div class="grid2">
+      <button data-act="stages">שלבים</button>
+      <button data-act="auto">משחק אוטומטי</button>
+      <button data-act="upload">דמות מתמונה</button>
+      <button data-act="settings">הגדרות</button>
+    </div>
+    <div class="grid2">
+      <button class="ghost" data-act="classic">הגרסה הקלאסית</button>
+      <button class="ghost" data-act="exit" id="exitBtn">מסך מלא</button>
+    </div>
+  </div>
+  <div class="panel scores">
+    <h3>שיאים <span id="scoreLevel"></span></h3>
+    <ol id="scoreList"></ol>
+  </div>
+</section>
+
+<section id="stages" class="screen" hidden>
+  <div class="panel wide">
+    <h2>שלבים</h2>
+    <div class="desc" id="stageInfo"></div>
+    <div class="cards" id="stageCards"></div>
+    <button class="ghost" data-act="back">חזרה</button>
+  </div>
+</section>
+
+<section id="settings" class="screen" hidden>
+  <div class="panel">
+    <h2>הגדרות</h2>
+    <button class="toggle" data-set="sound">צלילים</button>
+    <button class="toggle" data-set="music">מוזיקה</button>
+    <button class="toggle" data-set="ads">מצב פרסומות</button>
+    <button class="toggle" data-set="hq">איכות מקסימלית (פי 1.5)</button>
+    <button class="toggle" data-set="shake">רעידות מסך</button>
+    <div class="desc" id="gpuName"></div>
+    <button class="ghost" data-act="back">חזרה</button>
+  </div>
+</section>
+
+<section id="pause" class="screen dim" hidden>
+  <div class="panel">
+    <h2>המשחק מושהה</h2>
+    <button class="big" data-act="resume">המשך</button>
+    <button data-act="restart">התחל מחדש</button>
+    <button class="toggle" data-act="toggleAuto" id="autoBtn">משחק אוטומטי</button>
+    <button class="ghost" data-act="toMenu">לתפריט</button>
+  </div>
+</section>
+
+<section id="over" class="screen dim" hidden>
+  <div class="panel">
+    <h2 id="overTitle">המשחק נגמר</h2>
+    <div class="stats">
+      <div><small>ניקוד</small><b id="oScore"></b></div>
+      <div><small>קומה</small><b id="oFloor"></b></div>
+      <div><small>הקומבו הטוב</small><b id="oCombo"></b></div>
+    </div>
+    <div class="desc" id="overNote"></div>
+    <div id="nameBox" hidden>
+      <label for="nameIn">שיא חדש! מה השם שלך?</label>
+      <input id="nameIn" maxlength="12" autocomplete="nickname" enterkeyhint="done">
+      <button data-act="saveName">שמירה</button>
+    </div>
+    <button class="big" data-act="again" id="againBtn">שחק שוב</button>
+    <button class="ghost" data-act="toMenu">לתפריט</button>
+  </div>
+</section>
+
+<button id="pauseBtn" class="pausebtn" data-act="pause" aria-label="השהיה" hidden>❚❚</button>
+
+<div id="loading"><div class="spinner"></div><div>טוען את המגדל...</div></div>
+<script type="module" src="modern.js"></script>
+</body>
+</html>

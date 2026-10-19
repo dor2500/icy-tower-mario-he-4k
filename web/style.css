@@ -94,37 +94,4 @@ body.portrait #choose .cards { flex-direction: column; }
 #loading .bar { width: min(70vw, 420px); height: 18px; border: 3px solid #000; border-radius: 10px; background: #2b1630; overflow: hidden; }
 #loading .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff2a2a, #fff000, #3cff3c, #19d7ff); transition: width .15s; }
 #loadMsg { font-weight: 700; opacity: .85; }
-
-/* ---------- "מצב פרסומות": flashy fake banners above and below the game (ads.js) */
-.ad { position: fixed; left: 0; right: 0; height: var(--adH); z-index: 4; cursor: pointer; overflow: hidden;
-  display: flex; align-items: center; gap: min(2.2vw, 18px); padding: 0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
-  background: linear-gradient(100deg, var(--a), var(--b)); border: solid #000; color: #fff; font-family: Rubik, sans-serif;
-  text-shadow: 0 2px 0 rgba(0,0,0,.55); }
-.ad[hidden] { display: none; }
-.ad.top { top: 0; border-width: 0 0 3px; padding-top: env(safe-area-inset-top); }
-.ad.bot { bottom: 0; border-width: 3px 0 0; padding-bottom: env(safe-area-inset-bottom); }
-.ad::after { content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.45) 45%, transparent 60%) -100% 0 / 60% 100% no-repeat;
-  animation: adShine 2.6s infinite; }
-@keyframes adShine { to { background-position: 250% 0; } }
-.ad.in > * { animation: adIn .45s cubic-bezier(.2,1.6,.4,1) both; }
-@keyframes adIn { from { transform: translateY(60%) scale(.8); opacity: 0; } }
-.ad .tag { position: absolute; top: calc(env(safe-area-inset-top) + 3px); left: 6px; font-size: 10px; font-weight: 700;
-  background: #ffd400; color: #000; text-shadow: none; padding: 0 5px; border-radius: 3px; }
-.ad.bot .tag { top: auto; bottom: calc(env(safe-area-inset-bottom) + 3px); }
-.ad .em { font-size: calc(var(--adH) * .55); line-height: 1; filter: drop-shadow(0 3px 0 rgba(0,0,0,.4)); animation: adBounce 1s ease-in-out infinite; }
-@keyframes adBounce { 50% { transform: translateY(-8%) rotate(-8deg) scale(1.08); } }
-.ad .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; }
-.ad .txt b { font-weight: 900; font-size: clamp(14px, calc(var(--adH) * .3), 34px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ad .txt small { font-weight: 700; font-size: clamp(11px, calc(var(--adH) * .19), 20px); opacity: .95; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ad .cta { flex: none; font-weight: 900; font-size: clamp(13px, calc(var(--adH) * .24), 26px); padding: .35em .9em; border-radius: 99px;
-  background: #fff; color: #e8202a; text-shadow: none; border: 3px solid #000; box-shadow: 0 4px 0 #000; animation: adPulse .9s ease-in-out infinite; }
-@keyframes adPulse { 50% { transform: scale(1.09); } }
-.ad .x { flex: none; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; font-size: 12px;
-  background: rgba(0,0,0,.45); color: #fff; text-shadow: none; align-self: flex-start; margin-top: 4px; }
-.ad.bot .x { align-self: flex-end; margin: 0 0 4px; }
-/* the real "remove ads" button */
-.ad .off { flex: none; position: relative; z-index: 1; font: 800 clamp(11px, calc(var(--adH) * .17), 17px) Rubik, sans-serif;
-  padding: .45em .8em; border-radius: 10px; border: 2px solid #fff; background: rgba(0,0,0,.6); color: #fff; cursor: pointer;
-  text-shadow: none; animation: none !important; }
-.ad .off:hover { background: #000; }
+/* the ad banners (ads mode): ads.css */
