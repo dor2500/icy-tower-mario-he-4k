@@ -19,7 +19,8 @@ public class W {
 "@
 [W]::SetProcessDPIAware() | Out-Null
 $map = @{ up = @(0x48, 1); down = @(0x50, 1); left = @(0x4B, 1); right = @(0x4D, 1); enter = @(0x1C, 0); esc = @(0x01, 0); space = @(0x39, 0); f1 = @(0x3B, 0); del = @(0x53, 1) }
-$p = Get-Process icytower13 -EA SilentlyContinue | Select -First 1
+# (icytower13.exe = the new game, icytower13_classic.exe = the original engine)
+$p = Get-Process ([IO.Path]::GetFileNameWithoutExtension($Exe)) -EA SilentlyContinue | Select -First 1
 if (-not $p) {
   $p = Start-Process -FilePath $Exe -WorkingDirectory (Split-Path $Exe) -PassThru
   Start-Sleep $Wait
