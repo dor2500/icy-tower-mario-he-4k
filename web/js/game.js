@@ -9,6 +9,7 @@
 //    with 2+ jumps it scores floors^2 and shows a reward ("good" ... "no way")
 import * as G from './gfx.js';
 import * as S from './sound.js';
+import { drawHero, getChar } from './chars.js';
 
 const TOP = 432;                                  // screen y of row 0 (floor 0) when scroll = 0
 const SPEED_STEP = 1500;                           // ticks between speed-ups (30 s)
@@ -102,9 +103,37 @@ function drawLava(ctx, v, t) {                        // Bowser's castle: glowin
   ctx.restore();
 }
 
+function drawFog(ctx, v, t) {                        // "extreme": purple fog drifting through the tower
+  ctx.save();
+  for (let i = 0; i < 5; i++) {
+    const x = 60 + ((((t * (0.35 + i * 0.12) + i * 210) % 760) + 760) % 760) - 120;
+    const y = v.y + ((i * 0.23 + 0.1) % 1) * v.h;
+    const g = ctx.createRadialGradient(x, y, 10, x, y, 150);
+    g.addColorStop(0, 'rgba(190,150,255,0.28)'); g.addColorStop(1, 'rgba(190,150,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(x - 160, y - 160, 320, 320);
+  }
+  ctx.restore();
+}
+
+function drawEmbers(ctx, v, t) {                     // "impossible": glowing embers rising from the lava
+  ctx.save();
+  for (let i = 0; i < 34; i++) {
+    const sp = 0.6 + (i % 5) * 0.35;
+    const y = v.y + v.h - ((t * sp + i * 97) % (v.h + 40));
+    const x = 62 + ((i * 151) % 516) + Math.sin(t / 20 + i) * 10;
+    const r = 1.2 + (i % 3) * 0.9;
+    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t / 7 + i * 2);
+    ctx.fillStyle = i % 3 ? '#ffb020' : '#ff4a10';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
 export class Game {
   constructor(opt = {}) {
     this.opt = opt;
+    this.silent = !!opt.silent;
+    this.hero = opt.hero || getChar();
     this.seed = (opt.seed ?? (Date.now() & 0x7fffffff)) >>> 0;
     // stage mode (stages.js); null = the classic game, exactly as the original
     this.st = opt.stage || null;
@@ -116,6 +145,7 @@ export class Game {
     this.maxL = df.maxL || 5;
     this.startL = Math.max(st.fastStart || 0, df.startL || 0);
     this.comboT = df.combo || 100;
+    this.look = !this.st && this.df && this.df.look ? this.df.look : null;   // the level's own look
     // floor extras from the stage and/or the difficulty
     this.fx = this.st || this.df ? {
       moving: Math.max(st.moving || 0, df.moving || 0), crumble: Math.max(st.crumble || 0, df.crumble || 0),
@@ -214,10 +244,16 @@ export class Game {
       row.type = 0; row.l = this.rand() % (30 - w) + 5; row.rt = row.l + w;
       if (df) {
         // harder maps: floors on alternate sides (zigzag), and some floors left out (never two in a row)
-        if (df.zigzag && this.lastC !== undefined) row.l = this.lastC < 20 ? 34 - w - this.rand2() % 3 : 5 + this.rand2() % 3;
+        // (6-11 tiles between the floors' centres: a long run-up jump, but always one that can be made)
+        if (df.zigzag && this.lastC !== undefined) {
+          const gap = 6 + this.rand2() % 6, c = this.lastC < 20 ? this.lastC + gap : this.lastC - gap;
+          row.l = Math.max(5, Math.min(34 - w, Math.round(c - w / 2)));
+        }
         row.rt = row.l + w;
-        if (df.skip && f >= 5 && !this.lastSkip && this.chance(df.skip)) { row.type = -1; this.lastSkip = true; }
-        else { this.lastSkip = false; this.lastC = (row.l + row.rt) / 2; }
+        // a missing floor = a 2-floor jump, which needs speed: only above a wide floor, or one at a wall (bounce)
+        const runUp = this.lastW >= 8 || (this.lastWall && this.lastW >= 5);
+        if (df.skip && f >= 5 && !this.lastSkip && runUp && this.chance(df.skip)) { row.type = -1; this.lastSkip = true; }
+        else { this.lastSkip = false; this.lastC = (row.l + row.rt) / 2; this.lastW = w + 1; this.lastWall = row.l <= 5 || row.rt >= 34; }
       }
     }
     if (r % 50 === 0) row.sign = ((r + 1) / 5) | 0;
@@ -436,7 +472,7 @@ export class Game {
         if (t >= 45) {
           this.gone.add(r);
           const top = TOP + this.S - 16 * r;
-          for (let c = row.l; c <= row.rt; c++) this.debris.push({ x: c * 16 + this.shift(row), y: top - 6, vx: (this.rand2() % 200 - 100) / 60, vy: -(this.rand2() % 100) / 50, a: 0, va: (this.rand2() % 100 - 50) / 300, S0: this.S, set: this.st ? this.st.set : Math.min(row.theme, 9) });
+          for (let c = row.l; c <= row.rt; c++) this.debris.push({ x: c * 16 + this.shift(row), y: top - 6, vx: (this.rand2() % 200 - 100) / 60, vy: -(this.rand2() % 100) / 50, a: 0, va: (this.rand2() % 100 - 50) / 300, S0: this.S, set: this.st ? this.st.set : this.look ? this.look.set : Math.min(row.theme, 9) });
           this.snd('S_SPLAT', 0.5);
         }
       }
@@ -502,6 +538,22 @@ export class Game {
     const bgOff = ((Sv % 128) + 128) % 128 / 2;
     const up = this.ahead;                            // extra view above (phone held upright)
     for (let i = -1 - Math.ceil(up / 64); i <= 7; i++) G.part('BGSTRIP', 60, 0, 520, 64, 60, i * 64 + bgOff);
+    // the level's atmosphere over the back wall (easy: sky blue ... impossible: hell red)
+    const look = this.look;
+    if (look) {
+      const ctx0 = G.context(), v0 = G.view();
+      ctx0.save();
+      if (look.sky) {                                   // easy: a soft light from above
+        const g = ctx0.createLinearGradient(0, v0.y, 0, v0.y + v0.h);
+        g.addColorStop(0, look.tint); g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx0.globalAlpha = look.tintA * 1.6; ctx0.fillStyle = g; ctx0.fillRect(60, v0.y, 520, v0.h);
+      }
+      ctx0.globalAlpha = look.tintA; ctx0.globalCompositeOperation = 'overlay';
+      ctx0.fillStyle = look.tint; ctx0.fillRect(60, v0.y, 520, v0.h);
+      ctx0.globalCompositeOperation = 'source-over'; ctx0.globalAlpha = look.tintA * 0.6;
+      ctx0.fillRect(60, v0.y, 520, v0.h);
+      ctx0.restore();
+    }
 
     // hurry up! banner (behind the floors, like the original)
     if (this.hurryY + 99 <= 578 && this.hurryY >= -99 - up) {
@@ -517,7 +569,7 @@ export class Game {
       const row = this.rows[r];
       if (!row || row.type !== 0 || this.gone.has(r)) continue;
       const top = TOP + Sv - 16 * r;
-      const set = this.st ? this.st.set : row.n >= 5000 ? 10 : Math.min(row.theme, 9);
+      const set = this.st ? this.st.set : look ? look.set : row.n >= 5000 ? 10 : Math.min(row.theme, 9);
       const [L, M, Rt] = FLOOR_SETS[set];
       let ox = this.shift(row, tf);
       const ct = this.crum.get(r) || 0;
@@ -548,17 +600,12 @@ export class Game {
     const starN = ['STAR01', 'STAR02', 'STAR03', 'STAR04', 'STAR05', 'STAR06', 'STAR07', 'STAR08'];
     for (const s of this.stars) G.img(starN[s.t], s.x, s.y);
 
-    // the player
+    // the player (Mario, or the character chosen in "דמויות" - chars.js)
     if (py < 560) {
       const [name, flip] = this.frameName(p);
-      const [w, h] = G.size(name);
-      const cx = px + 4;
-      if (name === 'MARIO_ROTATE') {
-        const ang = (p.ang + 8 * a) / 256 * Math.PI * 2 * (p.vx < 0 ? -1 : 1);
-        G.img(name, cx - w / 2, py - 26 - h / 2, { rot: ang, cx, cy: py - 26 });
-      } else {
-        G.img(name, cx - w / 2, py - h + 2, flip ? { flip: true } : undefined);
-      }
+      drawHero(this.hero, name, flip, px + 4, py, {
+        ang: (p.ang + 8 * a) / 256 * Math.PI * 2 * (p.vx < 0 ? -1 : 1), face: p.face, walk: p.walk, t: this.frame + a, vy: p.vy,
+      });
     }
 
     const v = G.view();
@@ -591,8 +638,24 @@ export class Game {
       for (let x = 565; x < 640 + m; x += 132) G.img('SIDEBLOCK', x, wallOff + k * 124);
       for (let x = -57; x + 132 > -m; x -= 132) G.img('SIDEBLOCK', x, wallOff + k * 124, { flip: true });
     }
-    if (this.st && this.st.lava) drawLava(ctx, v, tf);
+    if (look) {
+      if (look.wallA) {                                  // darker / redder walls
+        ctx.save(); ctx.globalAlpha = look.wallA; ctx.fillStyle = look.wallTint || '#000';
+        ctx.fillRect(v.x, v.y, 75 - v.x, v.h); ctx.fillRect(565, v.y, v.x + v.w - 565, v.h);
+        ctx.restore();
+      }
+      if (look.fog) drawFog(ctx, v, tf);
+      if (look.embers) drawEmbers(ctx, v, tf);
+    }
+    if ((this.st && this.st.lava) || (look && look.lava)) drawLava(ctx, v, tf);
+    if (look && look.vignette) {                       // pulsing red frame
+      const k = 0.55 + 0.25 * Math.sin(tf / 12);
+      const g = ctx.createRadialGradient(320, v.y + v.h / 2, Math.min(v.w, v.h) * 0.35, 320, v.y + v.h / 2, Math.max(v.w, v.h) * 0.75);
+      g.addColorStop(0, 'rgba(120,0,0,0)'); g.addColorStop(1, `rgba(150,0,0,${k})`);
+      ctx.fillStyle = g; ctx.fillRect(v.x, v.y, v.w, v.h);
+    }
 
+    if (this.noHud) return;                          // level-select preview: just the tower
     this.drawHud(a);
     if (this.st) this.drawStageHud(a);
   }

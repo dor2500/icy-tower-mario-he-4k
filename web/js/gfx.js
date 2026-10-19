@@ -17,6 +17,22 @@ export function setMode(m) { mode = m; }
 export function getMode() { return mode; }
 export function size(name) { return meta.img[name]; }
 
+export const loaded = (set, name) => !!imgs[set][name];
+// a processed copy of a bitmap (recoloured characters): fn(rgba pixel array) edits the pixels in place
+export function derive(set, name, newName, fn) {
+  const im = imgs[set][name];
+  if (!im || typeof document === 'undefined') return;
+  const c = document.createElement('canvas');
+  c.width = im.naturalWidth || im.width; c.height = im.naturalHeight || im.height;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(im, 0, 0);
+  const d = x.getImageData(0, 0, c.width, c.height);
+  fn(d.data);
+  x.putImageData(d, 0, 0);
+  imgs[set][newName] = c;
+  meta.img[newName] = meta.img[name];
+}
+
 export function attach(c) { canvas = c; ctx = c.getContext('2d', { alpha: false }); }
 
 // game rectangle in CSS px -> device transform
